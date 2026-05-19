@@ -1,0 +1,179 @@
+#!/usr/bin/env python3
+"""Real-time traffic video analysis — entry point."""
+
+from __future__ import annotations
+
+import argparse
+import sys
+import threading
+import time
+from pathlib import Path
+
+import cv2
+
+import config
+from annotator import count_by_category, draw_annotations
+from csv_logger import CSVLogger
+from detector import VehicleModelLoader, crop_vehicle, get_device
+from ocr_engine import OCREngine
+from tracker import VehicleTracker, TrackedVehicle
+
+# Shared snapshot for CSV background thread
+_state_lock = threading.Lock()
+_latest_counts: dict = {c: 0 for c in config.ALL_VEHICLE_CLASSES}
+_latest_counts["total"] = 0
+
+
+def _get_counts_snapshot() -> dict:
+    with _state_lock:
+        return dict(_latest_counts)
+
+
+def _update_counts(vehicles: list[TrackedVehicle]) -> None:
+    global _latest_counts
+    counts = count_by_category(vehicles)
+    with _state_lock:
+        _latest_counts = counts
+
+
+def open_capture(source: str) -> cv2.VideoCapture:
+    cap = cv2.VideoCapture(source)
+    if source.lower().startswith("rtsp://"):
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+    return cap
+
+
+def read_frame_with_reconnect(
+    cap: cv2.VideoCapture, source: str
+) -> tuple[cv2.VideoCapture, bool, object]:
+    """Read one frame; on RTSP failure reconnect after 5s (infinite retry)."""
+    is_rtsp = source.lower().startswith("rtsp://")
+    while True:
+        try:
+            ret, frame = cap.read()
+            if ret and frame is not None:
+                return cap, True, frame
+            if not is_rtsp:
+                return cap, False, None
+        except Exception:
+            if not is_rtsp:
+                return cap, False, None
+
+        print(f"[RTSP] Connection lost. Reconnecting in {config.RTSP_RECONNECT_WAIT_SEC}s...")
+        cap.release()
+        time.sleep(config.RTSP_RECONNECT_WAIT_SEC)
+        cap = open_capture(source)
+        if not cap.isOpened():
+            continue
+        print("[RTSP] Reconnected.")
+
+
+def should_run_plate_pipeline(vehicle: TrackedVehicle, ocr: OCREngine) -> bool:
+    if vehicle.vehicle_class in config.NO_PLATE_CLASSES:
+        return False
+    if vehicle.vehicle_class not in config.PLATE_DETECTION_CLASSES:
+        return False
+    return ocr.needs_ocr(vehicle.track_id)
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Real-time traffic analysis with YOLOv8 + EasyOCR"
+    )
+    parser.add_argument(
+        "--source",
+        type=str,
+        required=True,
+        help="Video file path or RTSP URL (e.g. rtsp://user:pass@ip:554/stream)",
+    )
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    source = args.source
+
+    if not source.lower().startswith("rtsp://") and not Path(source).exists():
+        print(f"Error: source not found: {source}", file=sys.stderr)
+        return 1
+
+    device = get_device()
+    print(f"Using device: {device}")
+
+    loader = VehicleModelLoader(device)
+    tracker = VehicleTracker(loader.yolo, device, loader.vehicle_class_ids)
+    ocr = OCREngine(device)
+
+    csv_logger = CSVLogger(
+        counts_getter=_get_counts_snapshot,
+        plates_getter=ocr.get_all_plates,
+    )
+    csv_logger.start()
+
+    cap = open_capture(source)
+    if not cap.isOpened():
+        print(f"Error: cannot open source: {source}", file=sys.stderr)
+        ocr.shutdown()
+        csv_logger.stop()
+        return 1
+
+    frame_idx = 0
+    fps = 0.0
+    t_prev = time.perf_counter()
+
+    print("Press 'q' in the video window to quit.")
+
+    try:
+        while True:
+            cap, ok, frame = read_frame_with_reconnect(cap, source)
+            if not ok:
+                break
+
+            vehicles = tracker.track(frame)
+            _update_counts(vehicles)
+
+            run_plate = frame_idx % config.PLATE_DETECT_EVERY_N_FRAMES == 0
+            if run_plate:
+                for v in vehicles:
+                    if should_run_plate_pipeline(v, ocr):
+                        crop = crop_vehicle(frame, v.bbox)
+                        if crop.size > 0:
+                            ocr.submit_vehicle_crop(v.track_id, crop)
+
+            ocr.drain_completed()
+
+            t_now = time.perf_counter()
+            dt = t_now - t_prev
+            if dt > 0:
+                fps = 0.9 * fps + 0.1 * (1.0 / dt) if fps > 0 else 1.0 / dt
+            t_prev = t_now
+
+            plate_map = ocr.get_all_plates()
+            annotated = draw_annotations(
+                frame,
+                vehicles,
+                plate_map,
+                _get_counts_snapshot(),
+                fps,
+                ocr.total_plates_detected,
+            )
+
+            cv2.imshow(config.WINDOW_NAME, annotated)
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+
+            frame_idx += 1
+
+    except KeyboardInterrupt:
+        print("\nInterrupted.")
+    finally:
+        cap.release()
+        cv2.destroyAllWindows()
+        csv_logger.stop()
+        ocr.shutdown()
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

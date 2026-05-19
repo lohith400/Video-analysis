@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+* {
+  font-family: 'Inter', sans-serif;
+}
+
+:root {
+  --sky-lightest: #F0F9FF;
+  --sky-surface: #E0F2FE;
+  --sky-border: #BAE6FD;
+  --sky-light: #7DD3FC;
+  --sky-mid: #38BDF8;
+  --sky-default: #0284C7;
+  --sky-dark: #0C4A6E;
+}
+
+body {
+  background-color: #F0F9FF;
+  color: #0C4A6E;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #E0F2FE;
+}
+::-webkit-scrollbar-thumb {
+  background: #7DD3FC;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #38BDF8;
+}
+
+/* LIVE pulse animation */
+@keyframes livePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.live-pulse {
+  animation: livePulse 1.5s ease-in-out infinite;
+}
+
+/* Spinner */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #BAE6FD;
+  border-top-color: #0284C7;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Progress bar animation */
+@keyframes progressFill {
+  from { width: 0%; }
+}
+
+/* Alert slide in */
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+/* Fade in */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}

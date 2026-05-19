@@ -1,0 +1,59 @@
+# ── Python ────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ── Virtual environments ───────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+# ── ML Models (large binary files) ────────────────────────────────────────
+models/*.pt
+models/*.pth
+models/*.onnx
+models/*.weights
+models/*.bin
+# Keep the .gitkeep so the models/ folder itself is tracked
+!models/.gitkeep
+
+# ── Uploaded videos / images ───────────────────────────────────────────────
+uploads/
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.jpg
+*.jpeg
+*.png
+*.bmp
+
+# ── Generated data ─────────────────────────────────────────────────────────
+traffic_log.csv
+*.csv
+
+# ── Frontend build & deps ──────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/build/
+
+# ── Zone.Identifier files (Windows WSL artefacts) ─────────────────────────
+*Zone.Identifier
+
+# ── IDE / OS ───────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ── Logs ──────────────────────────────────────────────────────────────────
+*.log
+logs/
