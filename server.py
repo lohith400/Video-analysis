@@ -46,29 +46,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Runtime state (written by analysis thread, read by WS handler) ─────────
+# ── Runtime state ──────────────────────────────────────────────────────────
 _state_lock = threading.Lock()
 
-_latest_counts:     Dict       = {c: 0 for c in config.ALL_VEHICLE_CLASSES}
+_latest_counts:     Dict           = {c: 0 for c in config.ALL_VEHICLE_CLASSES}
 _latest_counts["total"] = 0
 _latest_plates:     Dict[int, str] = {}
-_latest_violations: List[Dict]    = []
+_latest_violations: List[Dict]     = []
 _latest_fps:        float          = 0.0
 _source_type:       str            = "VIDEO"
 _is_running:        bool           = False
 
-# Encoded frames flow through this queue from the analysis thread to the WS.
-# maxsize=2 — always serve the newest frame; old ones are dropped.
+# Overall-video summary (populated when a file finishes processing)
+_video_done:    bool           = False
+_video_summary: Optional[Dict] = None   # {"counts": {...}, "plates": [...]}
+
+# Frames pushed from analysis thread → WebSocket (newest wins)
 _frame_queue: "queue.Queue[str]" = queue.Queue(maxsize=2)
 
 # ── Pipeline singletons ────────────────────────────────────────────────────
-_device = get_device()
+_device  = get_device()
 _loader:  Optional[VehicleModelLoader] = None
 _tracker: Optional[VehicleTracker]     = None
-_ocr                                   = None   # may stay None if model absent
+_ocr                                   = None
 _pipeline_lock = threading.Lock()
 
-# ── Thread control ─────────────────────────────────────────────────────────
 _analysis_thread: Optional[threading.Thread] = None
 _stop_event = threading.Event()
 
@@ -76,25 +78,20 @@ _stop_event = threading.Event()
 # ── Helpers ────────────────────────────────────────────────────────────────
 
 def _load_pipeline() -> None:
-    """Load YOLO vehicle model (required) + OCR engine (optional)."""
     global _loader, _tracker, _ocr
     with _pipeline_lock:
         if _loader is not None:
-            return  # already initialised
-
+            return
         print(f"[server] Loading vehicle model on {_device} …")
         _loader  = VehicleModelLoader(_device)
         _tracker = VehicleTracker(_loader.yolo, _device, _loader.vehicle_class_ids)
         print("[server] Vehicle model ready ✓")
-
-        # OCR / plate detection is optional
         try:
             from ocr_engine import OCREngine
             _ocr = OCREngine(_device)
             print("[server] OCR engine ready ✓")
         except FileNotFoundError as exc:
-            print(f"[server] WARNING: {exc}")
-            print("[server] Plate detection disabled — video will still stream.")
+            print(f"[server] WARNING: {exc} — plate detection disabled.")
             _ocr = None
         except Exception as exc:
             print(f"[server] WARNING: OCR init failed ({exc}) — plate detection disabled.")
@@ -102,13 +99,11 @@ def _load_pipeline() -> None:
 
 
 def _frame_to_b64(frame: np.ndarray) -> str:
-    """Encode a BGR numpy frame as base64 JPEG string (quality 80)."""
     ok, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
     return base64.b64encode(buf.tobytes()).decode("utf-8") if ok else ""
 
 
 def _push_frame(b64: str) -> None:
-    """Push a frame to the queue, dropping the oldest if full."""
     if not b64:
         return
     if _frame_queue.full():
@@ -138,16 +133,20 @@ def _stop_current(timeout: float = 3.0) -> None:
     _analysis_thread = None
 
 
+def _reset_summary() -> None:
+    """Clear previous video summary before starting a new source."""
+    global _video_done, _video_summary
+    with _state_lock:
+        _video_done    = False
+        _video_summary = None
+
+
 # ── Analysis thread ────────────────────────────────────────────────────────
 
 def _run_analysis(source, source_type: str) -> None:
-    """
-    Main analysis loop.  Runs in a daemon thread.
-    Pushes base64-encoded annotated frames into _frame_queue.
-    """
     global _latest_counts, _latest_fps, _source_type, _is_running
+    global _video_done, _video_summary
 
-    # -- Load models (first call only) --------------------------------------
     try:
         _load_pipeline()
     except Exception as exc:
@@ -158,20 +157,19 @@ def _run_analysis(source, source_type: str) -> None:
     _stop_event.clear()
     _flush_queue()
 
-    # -- Open capture -------------------------------------------------------
     cap = cv2.VideoCapture(source)
     if not cap.isOpened():
         print(f"[server] ERROR: Cannot open source: {source!r}")
         return
 
-    is_rtsp = isinstance(source, str) and source.lower().startswith("rtsp://")
+    is_live_source = source_type in ("LIVE", "WEBCAM")
+    is_rtsp        = isinstance(source, str) and source.lower().startswith("rtsp://")
     if is_rtsp:
         cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
     with _state_lock:
         _is_running = True
 
-    # -- CSV logger (optional) -----------------------------------------------
     csv_logger = None
     try:
         from csv_logger import CSVLogger
@@ -183,9 +181,12 @@ def _run_analysis(source, source_type: str) -> None:
     except Exception as exc:
         print(f"[server] CSV logger disabled: {exc}")
 
-    fps      = 0.0
-    t_prev   = time.perf_counter()
+    fps       = 0.0
+    t_prev    = time.perf_counter()
     frame_idx = 0
+
+    # Accumulate unique vehicles across entire video for the final summary
+    all_vehicles: Dict[int, str] = {}   # track_id -> vehicle_class
 
     print(f"[server] ▶ Analysis started — source={source!r}  type={source_type}")
 
@@ -193,7 +194,6 @@ def _run_analysis(source, source_type: str) -> None:
         while not _stop_event.is_set():
             ret, frame = cap.read()
 
-            # ---- Handle failed read ----------------------------------------
             if not ret or frame is None:
                 if is_rtsp:
                     print("[server] RTSP lost — reconnecting…")
@@ -203,19 +203,23 @@ def _run_analysis(source, source_type: str) -> None:
                     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
                     continue
                 else:
-                    print("[server] ■ End of source — stopping.")
+                    print("[server] ■ End of video file.")
                     break
 
-            # ---- Track vehicles --------------------------------------------
+            # ── Vehicle tracking ────────────────────────────────────────────
             try:
                 vehicles = _tracker.track(frame)
             except Exception as exc:
                 print(f"[server] Tracker error (frame {frame_idx}): {exc}")
                 vehicles = []
 
-            counts = count_by_category(vehicles)
+            # Accumulate unique vehicles for overall count
+            for v in vehicles:
+                all_vehicles[v.track_id] = v.vehicle_class
 
-            # ---- Plate OCR (only when model is available) ------------------
+            counts = count_by_category(vehicles)   # per-frame counts (live display)
+
+            # ── Plate OCR ───────────────────────────────────────────────────
             plates_map: Dict[int, str] = {}
             if _ocr is not None:
                 if frame_idx % config.PLATE_DETECT_EVERY_N_FRAMES == 0:
@@ -237,28 +241,28 @@ def _run_analysis(source, source_type: str) -> None:
                 except Exception:
                     pass
 
-            # ---- FPS -------------------------------------------------------
+            # ── FPS ─────────────────────────────────────────────────────────
             t_now = time.perf_counter()
             dt    = t_now - t_prev
             if dt > 0:
                 fps = 0.9 * fps + 0.1 / dt if fps > 0 else 1.0 / dt
             t_prev = t_now
 
-            # ---- Update shared state ---------------------------------------
+            # ── Shared state update ─────────────────────────────────────────
             with _state_lock:
                 _latest_counts = counts
                 _latest_plates = plates_map
                 _latest_fps    = fps
 
-            # ---- Annotate + encode + push ----------------------------------
+            # ── Annotate + push frame ───────────────────────────────────────
             try:
                 total_plates = _ocr.total_plates_detected if _ocr else 0
-                annotated = draw_annotations(
+                annotated    = draw_annotations(
                     frame, vehicles, plates_map, counts, fps, total_plates
                 )
             except Exception as exc:
                 print(f"[server] Annotation error: {exc}")
-                annotated = frame  # send raw frame as fallback
+                annotated = frame
 
             _push_frame(_frame_to_b64(annotated))
             frame_idx += 1
@@ -273,8 +277,39 @@ def _run_analysis(source, source_type: str) -> None:
                 csv_logger.stop()
             except Exception:
                 pass
+
+        # ── Build overall-video summary when a FILE finishes naturally ──────
+        # (not for live/RTSP, and not when manually stopped)
+        if not is_live_source and not _stop_event.is_set():
+            final_counts: Dict = {c: 0 for c in config.ALL_VEHICLE_CLASSES}
+            for cls in all_vehicles.values():
+                if cls in final_counts:
+                    final_counts[cls] += 1
+            final_counts["total"] = len(all_vehicles)
+
+            final_plates: List[Dict] = []
+            if _ocr:
+                try:
+                    final_plates = [
+                        {"plate": p, "timestamp": int(time.time() * 1000)}
+                        for p in _ocr.get_all_plates().values()
+                    ]
+                except Exception:
+                    pass
+
+            with _state_lock:
+                _video_done    = True
+                _video_summary = {"counts": final_counts, "plates": final_plates}
+
+            print(
+                f"[server] ✓ Video complete — "
+                f"{final_counts['total']} unique vehicles, "
+                f"{len(final_plates)} plates."
+            )
+
         with _state_lock:
             _is_running = False
+
         print("[server] ■ Analysis thread exited.")
 
 
@@ -285,10 +320,10 @@ async def health():
     with _state_lock:
         running = _is_running
     return {
-        "status":          "ok",
-        "device":          _device,
-        "models_loaded":   _loader is not None,
-        "ocr_available":   _ocr is not None,
+        "status":           "ok",
+        "device":           _device,
+        "models_loaded":    _loader is not None,
+        "ocr_available":    _ocr is not None,
         "analysis_running": running,
     }
 
@@ -299,8 +334,6 @@ async def upload(file: UploadFile = File(...)):
 
     dest_dir = Path("uploads")
     dest_dir.mkdir(exist_ok=True)
-
-    # Sanitise filename
     safe_name = Path(file.filename).name
     dest = dest_dir / safe_name
     dest.write_bytes(await file.read())
@@ -310,6 +343,8 @@ async def upload(file: UploadFile = File(...)):
     source_type = "VIDEO" if "video" in mime else "IMAGE"
 
     _stop_current()
+    _reset_summary()   # clear old summary before new file
+
     _analysis_thread = threading.Thread(
         target=_run_analysis,
         args=(str(dest), source_type),
@@ -336,6 +371,8 @@ async def connect(req: ConnectRequest):
         source, source_type = raw, "LIVE"
 
     _stop_current()
+    _reset_summary()   # live streams never produce a video summary
+
     _analysis_thread = threading.Thread(
         target=_run_analysis,
         args=(source, source_type),
@@ -350,6 +387,7 @@ async def connect(req: ConnectRequest):
 @app.post("/stop")
 async def stop():
     _stop_current()
+    _reset_summary()
     return {"status": "stopped"}
 
 
@@ -368,7 +406,7 @@ async def analytics():
     return {"rows": rows}
 
 
-# ── WebSocket — stream frames + metadata ───────────────────────────────────
+# ── WebSocket ──────────────────────────────────────────────────────────────
 
 @app.websocket("/video-feed")
 async def video_feed(websocket: WebSocket):
@@ -379,9 +417,7 @@ async def video_feed(websocket: WebSocket):
 
     try:
         while True:
-            # ----------------------------------------------------------------
-            # 1. Pull the latest annotated frame (non-blocking via executor)
-            # ----------------------------------------------------------------
+            # 1. Pull latest annotated frame (non-blocking)
             b64_frame: Optional[str] = None
             try:
                 b64_frame = await loop.run_in_executor(
@@ -389,11 +425,9 @@ async def video_feed(websocket: WebSocket):
                     lambda: _frame_queue.get(timeout=0.12),
                 )
             except queue.Empty:
-                pass  # no new frame yet — metadata-only packet
+                pass
 
-            # ----------------------------------------------------------------
-            # 2. Read metadata snapshot
-            # ----------------------------------------------------------------
+            # 2. Snapshot of shared state
             with _state_lock:
                 counts     = dict(_latest_counts)
                 plates     = [
@@ -404,24 +438,30 @@ async def video_feed(websocket: WebSocket):
                 fps        = round(_latest_fps, 1)
                 src        = _source_type
                 running    = _is_running
+                video_done = _video_done
+                video_sum  = _video_summary
 
-            # ----------------------------------------------------------------
-            # 3. Build + send payload
-            # ----------------------------------------------------------------
+            is_live_src = src in ("LIVE", "WEBCAM")
+
+            # 3. Payload
             payload: Dict = {
                 "fps":        fps,
-                "counts":     counts,
-                "plates":     plates,
+                "counts":     counts,       # per-frame (live progress while processing)
+                "plates":     plates,       # all plates seen so far
                 "violations": violations,
                 "source":     src,
                 "running":    running,
+                "mode":       "live" if is_live_src else "video",
+                "video_done": video_done,   # True only when file finishes
             }
             if b64_frame:
                 payload["frame"] = b64_frame
 
-            await websocket.send_text(json.dumps(payload))
+            # Send overall summary only when video is complete
+            if video_done and video_sum:
+                payload["video_summary"] = video_sum
 
-            # Small sleep keeps CPU sane when no frames arrive
+            await websocket.send_text(json.dumps(payload))
             await asyncio.sleep(0.02)
 
     except WebSocketDisconnect:
