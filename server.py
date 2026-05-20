@@ -49,7 +49,11 @@ app.add_middleware(
 # ── Runtime state ──────────────────────────────────────────────────────────
 _state_lock = threading.Lock()
 
-_latest_counts:     Dict           = {c: 0 for c in config.ALL_VEHICLE_CLASSES}
+# Target classes initialized for cumulative reporting
+_target_classes = sorted(list(set(config.USER_CLASS_MAPPING.values())))
+if "Others" not in _target_classes:
+    _target_classes.append("Others")
+_latest_counts:     Dict           = {cls: 0 for cls in _target_classes}
 _latest_counts["total"] = 0
 _latest_plates:     Dict[int, str] = {}
 _latest_violations: List[Dict]     = []
@@ -185,8 +189,9 @@ def _run_analysis(source, source_type: str) -> None:
     t_prev    = time.perf_counter()
     frame_idx = 0
 
-    # Accumulate unique vehicles across entire video for the final summary
-    all_vehicles: Dict[int, str] = {}   # track_id -> vehicle_class
+    # Initialize high-precision line-crossing counter
+    from traffic_counter import TrafficCounter
+    counter = TrafficCounter()
 
     print(f"[server] ▶ Analysis started — source={source!r}  type={source_type}")
 
@@ -206,18 +211,16 @@ def _run_analysis(source, source_type: str) -> None:
                     print("[server] ■ End of video file.")
                     break
 
-            # ── Vehicle tracking ────────────────────────────────────────────
+            # ── Vehicle tracking & Cumulative Line-Crossing ─────────────────
             try:
                 vehicles = _tracker.track(frame)
+                counter.update(vehicles, frame.shape)
             except Exception as exc:
                 print(f"[server] Tracker error (frame {frame_idx}): {exc}")
                 vehicles = []
 
-            # Accumulate unique vehicles for overall count
-            for v in vehicles:
-                all_vehicles[v.track_id] = v.vehicle_class
-
-            counts = count_by_category(vehicles)   # per-frame counts (live display)
+            # Retrieve cumulative statistics
+            counts = counter.get_counts()
 
             # ── Plate OCR ───────────────────────────────────────────────────
             plates_map: Dict[int, str] = {}
@@ -258,7 +261,7 @@ def _run_analysis(source, source_type: str) -> None:
             try:
                 total_plates = _ocr.total_plates_detected if _ocr else 0
                 annotated    = draw_annotations(
-                    frame, vehicles, plates_map, counts, fps, total_plates
+                    frame, vehicles, plates_map, counts, fps, total_plates, counter=counter
                 )
             except Exception as exc:
                 print(f"[server] Annotation error: {exc}")
@@ -281,11 +284,8 @@ def _run_analysis(source, source_type: str) -> None:
         # ── Build overall-video summary when a FILE finishes naturally ──────
         # (not for live/RTSP, and not when manually stopped)
         if not is_live_source and not _stop_event.is_set():
-            final_counts: Dict = {c: 0 for c in config.ALL_VEHICLE_CLASSES}
-            for cls in all_vehicles.values():
-                if cls in final_counts:
-                    final_counts[cls] += 1
-            final_counts["total"] = len(all_vehicles)
+            # Use exact high-precision line crossing count for identical final summary
+            final_counts = counter.get_counts()
 
             final_plates: List[Dict] = []
             if _ocr:
@@ -303,7 +303,7 @@ def _run_analysis(source, source_type: str) -> None:
 
             print(
                 f"[server] ✓ Video complete — "
-                f"{final_counts['total']} unique vehicles, "
+                f"{final_counts['total']} cumulative vehicles, "
                 f"{len(final_plates)} plates."
             )
 

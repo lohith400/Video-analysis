@@ -12,27 +12,26 @@ from pathlib import Path
 import cv2
 
 import config
-from annotator import count_by_category, draw_annotations
+from annotator import draw_annotations
 from csv_logger import CSVLogger
 from detector import VehicleModelLoader, crop_vehicle, get_device
 from tracker import VehicleTracker, TrackedVehicle
+from traffic_counter import TrafficCounter
 
 # Shared snapshot for CSV background thread
 _state_lock = threading.Lock()
-_latest_counts: dict = {c: 0 for c in config.ALL_VEHICLE_CLASSES}
+
+# Target classes initialized for cumulative reporting
+_initial_target_classes = sorted(list(set(config.USER_CLASS_MAPPING.values())))
+if "Others" not in _initial_target_classes:
+    _initial_target_classes.append("Others")
+_latest_counts: dict = {cls: 0 for cls in _initial_target_classes}
 _latest_counts["total"] = 0
 
 
 def _get_counts_snapshot() -> dict:
     with _state_lock:
         return dict(_latest_counts)
-
-
-def _update_counts(vehicles: list[TrackedVehicle]) -> None:
-    global _latest_counts
-    counts = count_by_category(vehicles)
-    with _state_lock:
-        _latest_counts = counts
 
 
 def open_capture(source: str) -> cv2.VideoCapture:
@@ -114,6 +113,9 @@ def main() -> int:
 
     loader = VehicleModelLoader(device)
     tracker = VehicleTracker(loader.yolo, device, loader.vehicle_class_ids)
+    
+    # Initialize high-precision line-crossing counter
+    counter = TrafficCounter()
 
     # Only load OCR engine if needed
     ocr = None
@@ -148,7 +150,14 @@ def main() -> int:
                 break
 
             vehicles = tracker.track(frame)
-            _update_counts(vehicles)
+            
+            # Update TrafficCounter state & calculate cumulative crossings
+            counter.update(vehicles, frame.shape)
+            
+            # Sync cumulative counts snapshot for the background CSV logger
+            with _state_lock:
+                global _latest_counts
+                _latest_counts = counter.get_counts()
 
             # Only run plate pipeline if OCR is enabled
             if use_ocr:
@@ -177,6 +186,7 @@ def main() -> int:
                 _get_counts_snapshot(),
                 fps,
                 total_plates,
+                counter=counter,
             )
 
             cv2.imshow(config.WINDOW_NAME, annotated)
@@ -193,6 +203,21 @@ def main() -> int:
         csv_logger.stop()
         if use_ocr and ocr:
             ocr.shutdown()
+
+    # Output a gorgeous, highly-accurate final statistics summary
+    final_counts = counter.get_counts()
+    print("\n" + "═" * 60)
+    print(" 🚗💨   INDIAN ROAD INTELLIGENCE SYSTEM - REPORT SUMMARY   🚗💨 ")
+    print("═" * 60)
+    print(f" {'VEHICLE TYPE':<25} ║ {'CUMULATIVE COUNT':<20}")
+    print("═" * 60)
+    for cls, cnt in sorted(final_counts.items()):
+        if cls != "total":
+            print(f" {cls:<25} ║ {cnt:<20}")
+    print("─" * 60)
+    print(f" {'💥 TOTAL COUNTED':<25} ║ {final_counts.get('total', 0):<20}")
+    print("═" * 60)
+    print(f" Logs saved to: {config.CSV_PATH}\n")
 
     return 0
 

@@ -1,0 +1,10 @@
+# Ultralytics YOLO 🚀, AGPL-3.0 license
+# Tuned ByteTrack tracker parameters for traffic analysis
+
+tracker_type: bytetrack # tracker type, ['botsort', 'bytetrack']
+track_high_thresh: 0.25 # threshold for the first association
+track_low_thresh: 0.1 # threshold for the second association (recovers occluded/distant objects)
+new_track_thresh: 0.25 # threshold for initializing a new track
+track_buffer: 90 # buffer frames to keep lost tracks (handles long occlusions - ~3 seconds at 30 FPS)
+match_thresh: 0.8 # threshold for matching
+fuse_score: True # whether to fuse confidence score with iou matching

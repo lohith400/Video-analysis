@@ -5,13 +5,32 @@ PLATE_MODEL = "models/license_plate_detector.pt"
 CSV_PATH = "traffic_log.csv"
 CSV_UPDATE_INTERVAL = 1  # seconds
 
-CONF_THRESHOLD = 0.4
+CONF_THRESHOLD = 0.25  # Lowered from 0.40 to capture small/distant vehicles; tracker handles noise
 PLATE_CONF_THRESHOLD = 0.5
 IOU_THRESHOLD = 0.5
 USE_HALF = True
 
 MIN_PLATE_CHARS = 4
 MAX_PLATE_CHARS = 10
+
+# Minimum active frames a track must exist to filter out ephemeral false positives
+MIN_TRACK_AGE = 4
+
+# Virtual counting line as percentages: (start_x_pct, start_y_pct, end_x_pct, end_y_pct)
+# Placed horizontally at 65% height
+COUNTING_LINE_PCT = (0.0, 0.65, 1.0, 0.65)
+
+# Map raw detection classes (COCO/Custom) to precise target user classes
+USER_CLASS_MAPPING = {
+    "car": "Car",
+    "motorcycle": "Bike/Motorcycle",
+    "scooter": "Bike/Motorcycle",
+    "bus": "Bus",
+    "truck": "Truck",
+    "auto-rickshaw": "Auto Rickshaw",
+    "bicycle": "Bicycle",
+    "van": "Van",
+}
 
 PLATE_DETECTION_CLASSES = [
     "car",
@@ -51,7 +70,7 @@ COCO_VEHICLE_ID_MAP = {
     7: "truck",
 }
 
-TRACKER_CONFIG = "bytetrack.yaml"
+TRACKER_CONFIG = "models/custom_bytetrack.yaml"
 PLATE_DETECT_EVERY_N_FRAMES = 3
 TARGET_MIN_FPS = 15
 OCR_MAX_WORKERS = 4

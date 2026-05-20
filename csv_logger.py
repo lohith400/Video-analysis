@@ -71,18 +71,36 @@ class CSVLogger:
         counts = self._counts_getter()
         plates = self._plates_getter()
         plates_str = self._format_plates(plates)
-        row = [
-            datetime.now().isoformat(timespec="seconds"),
-            counts.get("total", 0),
-            counts.get("car", 0),
-            counts.get("truck", 0),
-            counts.get("bus", 0),
-            counts.get("auto-rickshaw", 0),
-            counts.get("motorcycle", 0),
-            counts.get("scooter", 0),
-            counts.get("bicycle", 0),
-            plates_str,
-        ]
+        
+        # Handle new TrafficCounter counts (capitalized mapped keys)
+        if "Car" in counts or "Bike/Motorcycle" in counts:
+            row = [
+                datetime.now().isoformat(timespec="seconds"),
+                counts.get("total", 0),
+                counts.get("Car", 0),
+                counts.get("Truck", 0),
+                counts.get("Bus", 0),
+                counts.get("Auto Rickshaw", 0),
+                counts.get("Bike/Motorcycle", 0),  # Merged motorcycles and scooters
+                0,                                 # Set scooters to 0 since they are merged
+                counts.get("Bicycle", 0),
+                plates_str,
+            ]
+        else:
+            # Fallback to legacy raw counts
+            row = [
+                datetime.now().isoformat(timespec="seconds"),
+                counts.get("total", 0),
+                counts.get("car", 0),
+                counts.get("truck", 0),
+                counts.get("bus", 0),
+                counts.get("auto-rickshaw", 0),
+                counts.get("motorcycle", 0),
+                counts.get("scooter", 0),
+                counts.get("bicycle", 0),
+                plates_str,
+            ]
+            
         with self._lock:
             with open(config.CSV_PATH, "a", newline="", encoding="utf-8") as f:
                 csv.writer(f).writerow(row)
