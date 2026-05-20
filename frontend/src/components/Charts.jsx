@@ -4,12 +4,12 @@ import {
   Cell,
   Tooltip as PieTooltip,
   Legend,
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip as LineTooltip,
+  Tooltip as AreaTooltip,
   ResponsiveContainer,
 } from "recharts";
 
@@ -20,27 +20,33 @@ const VEHICLE_COLORS = {
   Motorcycle: "#0C4A6E",
   "Auto-Rickshaw": "#BAE6FD",
   Scooter: "#c7e8fd",
-  Bicycle: "#475569",
+  Bicycle: "#94A3B8",
 };
 
 const CustomTooltipPie = ({ active, payload }) => {
   if (active && payload && payload.length) {
     return (
-      <div style={{ backgroundColor: "#c7e8fd", border: "1px solid #BAE6FD", borderRadius: "8px", padding: "8px 12px" }}>
-        <p style={{ color: "#0C4A6E", fontSize: 12, fontWeight: 600 }}>{payload[0].name}</p>
-        <p style={{ color: "#0284C7", fontSize: 13, fontWeight: 700 }}>{payload[0].value.toLocaleString()}</p>
+      <div className="glass-card rounded-xl p-2.5 border border-sky-border/40 font-heading text-xs text-sky-dark">
+        <p className="font-mono text-[9px] text-sky-dark/50 uppercase">CLASSIFICATION</p>
+        <p className="font-extrabold text-sky-dark mt-0.5">{payload[0].name}</p>
+        <p className="font-mono font-extrabold text-sky-default text-sm mt-1">
+          {payload[0].value.toLocaleString()} units
+        </p>
       </div>
     );
   }
   return null;
 };
 
-const CustomTooltipLine = ({ active, payload, label }) => {
+const CustomTooltipArea = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
-      <div style={{ backgroundColor: "#c7e8fd", border: "1px solid #BAE6FD", borderRadius: "8px", padding: "8px 12px" }}>
-        <p style={{ color: "#475569", fontSize: 11 }}>{label}</p>
-        <p style={{ color: "#0284C7", fontSize: 13, fontWeight: 700 }}>{payload[0].value.toLocaleString()} vehicles</p>
+      <div className="glass-card rounded-xl p-2.5 border border-sky-border/40 font-heading text-xs text-sky-dark">
+        <p className="font-mono text-[9px] text-sky-dark/50 uppercase">TIME INTERVAL</p>
+        <p className="font-extrabold text-sky-dark mt-0.5">{label}</p>
+        <p className="font-mono font-extrabold text-sky-default text-sm mt-1">
+          {payload[0].value.toLocaleString()} vehicles
+        </p>
       </div>
     );
   }
@@ -59,29 +65,26 @@ export function VehicleDistributionChart({ data = [] }) {
   ];
 
   return (
-    <div
-      className="rounded-panel p-5"
-      style={{ backgroundColor: "#c7e8fd", border: "1px solid #BAE6FD", borderRadius: "12px" }}
-    >
-      <h3 className="text-sm font-semibold mb-4" style={{ color: "#0C4A6E" }}>
-        Vehicle Distribution
+    <div className="glass-card rounded-2xl p-5 shadow-sm border border-sky-border/30">
+      <h3 className="font-heading font-extrabold text-xs text-sky-dark uppercase tracking-wider mb-4">
+        Vehicle Type Breakdown
       </h3>
       <ResponsiveContainer width="100%" height={260}>
         <PieChart>
           <Pie
             data={chartData}
             cx="50%"
-            cy="50%"
-            innerRadius={65}
-            outerRadius={100}
-            paddingAngle={2}
+            cy="45%"
+            innerRadius={60}
+            outerRadius={95}
+            paddingAngle={2.5}
             dataKey="value"
           >
             {chartData.map((entry, index) => (
               <Cell
                 key={`cell-${index}`}
                 fill={VEHICLE_COLORS[entry.name] || "#0284C7"}
-                stroke="#c7e8fd"
+                stroke="#F0F9FF"
                 strokeWidth={2}
               />
             ))}
@@ -89,9 +92,12 @@ export function VehicleDistributionChart({ data = [] }) {
           <PieTooltip content={<CustomTooltipPie />} />
           <Legend
             iconType="circle"
-            iconSize={8}
+            iconSize={6}
+            verticalAlign="bottom"
             formatter={(value) => (
-              <span style={{ color: "#0C4A6E", fontSize: 11 }}>{value}</span>
+              <span className="font-heading font-bold text-[10px] text-sky-dark/75 uppercase tracking-wide">
+                {value}
+              </span>
             )}
           />
         </PieChart>
@@ -117,37 +123,40 @@ export function VehiclesOverTimeChart({ data = [] }) {
   ];
 
   return (
-    <div
-      className="rounded-panel p-5"
-      style={{ backgroundColor: "#c7e8fd", border: "1px solid #BAE6FD", borderRadius: "12px" }}
-    >
-      <h3 className="text-sm font-semibold mb-4" style={{ color: "#0C4A6E" }}>
-        Vehicles Over Time
+    <div className="glass-card rounded-2xl p-5 shadow-sm border border-sky-border/30">
+      <h3 className="font-heading font-extrabold text-xs text-sky-dark uppercase tracking-wider mb-4">
+        Detections Over Timeline
       </h3>
       <ResponsiveContainer width="100%" height={260}>
-        <LineChart data={chartData} margin={{ top: 4, right: 16, left: -10, bottom: 0 }}>
-          <CartesianGrid stroke="#BAE6FD" strokeDasharray="4 4" vertical={false} />
+        <AreaChart data={chartData} margin={{ top: 10, right: 16, left: -20, bottom: 0 }}>
+          <defs>
+            <linearGradient id="areaChartGlow" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#0284C7" stopOpacity={0.35} />
+              <stop offset="95%" stopColor="#0284C7" stopOpacity={0.0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid stroke="rgba(186, 230, 253, 0.35)" strokeDasharray="4 4" vertical={false} />
           <XAxis
             dataKey="time"
-            tick={{ fill: "#475569", fontSize: 11 }}
-            axisLine={{ stroke: "#BAE6FD" }}
+            tick={{ fill: "#475569", fontSize: 10, fontFamily: "Inter" }}
+            axisLine={{ stroke: "rgba(186, 230, 253, 0.4)" }}
             tickLine={false}
           />
           <YAxis
-            tick={{ fill: "#475569", fontSize: 11 }}
+            tick={{ fill: "#475569", fontSize: 10, fontFamily: "Inter" }}
             axisLine={false}
             tickLine={false}
           />
-          <LineTooltip content={<CustomTooltipLine />} />
-          <Line
+          <AreaTooltip content={<CustomTooltipArea />} />
+          <Area
             type="monotone"
             dataKey="vehicles"
             stroke="#0284C7"
             strokeWidth={2.5}
-            dot={{ fill: "#0284C7", r: 3, strokeWidth: 0 }}
-            activeDot={{ fill: "#0C4A6E", r: 5, strokeWidth: 0 }}
+            fillOpacity={1}
+            fill="url(#areaChartGlow)"
           />
-        </LineChart>
+        </AreaChart>
       </ResponsiveContainer>
     </div>
   );

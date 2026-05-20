@@ -6,7 +6,7 @@ export default {
       colors: {
         sky: {
           lightest: "#F0F9FF",
-          surface: "#E0F2FE",
+          surface: "#c7e8fd",
           border: "#BAE6FD",
           light: "#7DD3FC",
           mid: "#38BDF8",
@@ -16,6 +16,7 @@ export default {
       },
       fontFamily: {
         sans: ["Inter", "sans-serif"],
+        heading: ["Space Grotesk", "sans-serif"],
       },
       borderRadius: {
         card: "8px",
