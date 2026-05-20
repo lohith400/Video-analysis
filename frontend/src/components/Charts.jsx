@@ -19,14 +19,14 @@ const VEHICLE_COLORS = {
   Bus: "#7DD3FC",
   Motorcycle: "#0C4A6E",
   "Auto-Rickshaw": "#BAE6FD",
-  Scooter: "#E0F2FE",
+  Scooter: "#c7e8fd",
   Bicycle: "#475569",
 };
 
 const CustomTooltipPie = ({ active, payload }) => {
   if (active && payload && payload.length) {
     return (
-      <div style={{ backgroundColor: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: "8px", padding: "8px 12px" }}>
+      <div style={{ backgroundColor: "#c7e8fd", border: "1px solid #BAE6FD", borderRadius: "8px", padding: "8px 12px" }}>
         <p style={{ color: "#0C4A6E", fontSize: 12, fontWeight: 600 }}>{payload[0].name}</p>
         <p style={{ color: "#0284C7", fontSize: 13, fontWeight: 700 }}>{payload[0].value.toLocaleString()}</p>
       </div>
@@ -38,7 +38,7 @@ const CustomTooltipPie = ({ active, payload }) => {
 const CustomTooltipLine = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
-      <div style={{ backgroundColor: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: "8px", padding: "8px 12px" }}>
+      <div style={{ backgroundColor: "#c7e8fd", border: "1px solid #BAE6FD", borderRadius: "8px", padding: "8px 12px" }}>
         <p style={{ color: "#475569", fontSize: 11 }}>{label}</p>
         <p style={{ color: "#0284C7", fontSize: 13, fontWeight: 700 }}>{payload[0].value.toLocaleString()} vehicles</p>
       </div>
@@ -61,7 +61,7 @@ export function VehicleDistributionChart({ data = [] }) {
   return (
     <div
       className="rounded-panel p-5"
-      style={{ backgroundColor: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: "12px" }}
+      style={{ backgroundColor: "#c7e8fd", border: "1px solid #BAE6FD", borderRadius: "12px" }}
     >
       <h3 className="text-sm font-semibold mb-4" style={{ color: "#0C4A6E" }}>
         Vehicle Distribution
@@ -81,7 +81,7 @@ export function VehicleDistributionChart({ data = [] }) {
               <Cell
                 key={`cell-${index}`}
                 fill={VEHICLE_COLORS[entry.name] || "#0284C7"}
-                stroke="#E0F2FE"
+                stroke="#c7e8fd"
                 strokeWidth={2}
               />
             ))}
@@ -119,7 +119,7 @@ export function VehiclesOverTimeChart({ data = [] }) {
   return (
     <div
       className="rounded-panel p-5"
-      style={{ backgroundColor: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: "12px" }}
+      style={{ backgroundColor: "#c7e8fd", border: "1px solid #BAE6FD", borderRadius: "12px" }}
     >
       <h3 className="text-sm font-semibold mb-4" style={{ color: "#0C4A6E" }}>
         Vehicles Over Time

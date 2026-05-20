@@ -28,7 +28,7 @@ function VideoSummaryPanel({ summary }) {
   return (
     <div
       className="rounded-panel p-5"
-      style={{ backgroundColor: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: "12px" }}
+      style={{ backgroundColor: "#c7e8fd", border: "1px solid #BAE6FD", borderRadius: "12px" }}
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
@@ -137,7 +137,7 @@ function LivePanel({ counts, plates, violations, isVideoProcessing }) {
 
       <div
         className="rounded-panel p-4"
-        style={{ backgroundColor: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: "12px" }}
+        style={{ backgroundColor: "#c7e8fd", border: "1px solid #BAE6FD", borderRadius: "12px" }}
       >
         <VehicleCounts counts={counts} />
       </div>
@@ -146,7 +146,7 @@ function LivePanel({ counts, plates, violations, isVideoProcessing }) {
 
       <div
         className="rounded-panel p-4"
-        style={{ backgroundColor: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: "12px" }}
+        style={{ backgroundColor: "#c7e8fd", border: "1px solid #BAE6FD", borderRadius: "12px" }}
       >
         <PlateTable plates={plates} />
       </div>
@@ -156,7 +156,7 @@ function LivePanel({ counts, plates, violations, isVideoProcessing }) {
           <div style={{ height: "1px", backgroundColor: "#BAE6FD", margin: "8px 0" }} />
           <div
             className="rounded-panel p-4"
-            style={{ backgroundColor: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: "12px" }}
+            style={{ backgroundColor: "#c7e8fd", border: "1px solid #BAE6FD", borderRadius: "12px" }}
           >
             <ViolationList violations={violations} />
           </div>
@@ -373,7 +373,7 @@ export default function LiveAnalysis() {
               style={
                 isLiveSrc
                   ? { backgroundColor: "#FEE2E2", color: "#DC2626", border: "1px solid #FCA5A5" }
-                  : { backgroundColor: "#E0F2FE", color: "#0284C7", border: "1px solid #BAE6FD" }
+                  : { backgroundColor: "#c7e8fd", color: "#0284C7", border: "1px solid #BAE6FD" }
               }
             >
               {isLiveSrc ? "🔴 LIVE" : videoProcessing ? "⏳ PROCESSING" : "📹 VIDEO"}
@@ -384,7 +384,7 @@ export default function LiveAnalysis() {
             <span
               className="text-xs px-3 py-1 rounded-full font-medium"
               style={{
-                backgroundColor: "#E0F2FE",
+                backgroundColor: "#c7e8fd",
                 color: wsStatus === "open" ? "#0284C7" : "#475569",
                 border: "1px solid #BAE6FD",
               }}
@@ -443,7 +443,7 @@ export default function LiveAnalysis() {
             {fps !== null && isActive && (
               <div
                 className="mt-2 flex items-center gap-2 px-3 py-1.5 text-xs"
-                style={{ backgroundColor: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: "8px", color: "#0284C7" }}
+                style={{ backgroundColor: "#c7e8fd", border: "1px solid #BAE6FD", borderRadius: "8px", color: "#0284C7" }}
               >
                 <span className="font-mono font-bold">{fps} FPS</span>
                 <span style={{ color: "#94A3B8" }}>· processing speed</span>
@@ -472,7 +472,7 @@ export default function LiveAnalysis() {
             {/* Controls */}
             <div
               className="rounded-panel p-4"
-              style={{ backgroundColor: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: "12px" }}
+              style={{ backgroundColor: "#c7e8fd", border: "1px solid #BAE6FD", borderRadius: "12px" }}
             >
               <h3 className="text-sm font-semibold mb-3" style={{ color: "#0C4A6E" }}>Controls</h3>
               <div className="flex gap-2">

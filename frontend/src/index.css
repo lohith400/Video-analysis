@@ -10,7 +10,7 @@
 
 :root {
   --sky-lightest: #F0F9FF;
-  --sky-surface: #E0F2FE;
+  --sky-surface: #c7e8fd;
   --sky-border: #BAE6FD;
   --sky-light: #7DD3FC;
   --sky-mid: #38BDF8;
@@ -30,7 +30,7 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #E0F2FE;
+  background: #c7e8fd;
 }
 ::-webkit-scrollbar-thumb {
   background: #7DD3FC;

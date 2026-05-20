@@ -32,7 +32,7 @@ export default function VehicleCounts({ counts = {} }) {
           <div
             key={key}
             className="rounded-card px-2 py-2.5 text-center transition-all duration-200"
-            style={{ backgroundColor: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: "8px" }}
+            style={{ backgroundColor: "#c7e8fd", border: "1px solid #BAE6FD", borderRadius: "8px" }}
           >
             <div className="text-xl font-bold font-mono" style={{ color: "#0284C7" }}>
               {(counts[key] || 0).toLocaleString()}

@@ -84,9 +84,9 @@ function UploadVideoCard() {
   return (
     <div
       className="rounded-panel p-6 flex flex-col gap-4 transition-all duration-200 hover:cursor-default"
-      style={{ backgroundColor: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: "12px" }}
+      style={{ backgroundColor: "#c7e8fd", border: "1px solid #BAE6FD", borderRadius: "12px" }}
       onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#BAE6FD")}
-      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#E0F2FE")}
+      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#c7e8fd")}
     >
       <div className="flex items-center gap-3">
         <VideoIcon />
@@ -145,7 +145,7 @@ function UploadVideoCard() {
       )}
 
       {error && (
-        <div className="rounded-card px-3 py-2 text-xs" style={{ backgroundColor: "#E0F2FE", border: "1px solid #7DD3FC", color: "#0C4A6E", borderRadius: "8px" }}>
+        <div className="rounded-card px-3 py-2 text-xs" style={{ backgroundColor: "#c7e8fd", border: "1px solid #7DD3FC", color: "#0C4A6E", borderRadius: "8px" }}>
           {error}
         </div>
       )}
@@ -204,9 +204,9 @@ function UploadImageCard() {
   return (
     <div
       className="rounded-panel p-6 flex flex-col gap-4 transition-all duration-200"
-      style={{ backgroundColor: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: "12px" }}
+      style={{ backgroundColor: "#c7e8fd", border: "1px solid #BAE6FD", borderRadius: "12px" }}
       onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#BAE6FD")}
-      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#E0F2FE")}
+      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#c7e8fd")}
     >
       <div className="flex items-center gap-3">
         <ImageIcon />
@@ -241,7 +241,7 @@ function UploadImageCard() {
       )}
 
       {error && (
-        <div className="rounded-card px-3 py-2 text-xs" style={{ backgroundColor: "#E0F2FE", border: "1px solid #7DD3FC", color: "#0C4A6E", borderRadius: "8px" }}>
+        <div className="rounded-card px-3 py-2 text-xs" style={{ backgroundColor: "#c7e8fd", border: "1px solid #7DD3FC", color: "#0C4A6E", borderRadius: "8px" }}>
           {error}
         </div>
       )}
@@ -293,9 +293,9 @@ function LiveCCTVCard() {
   return (
     <div
       className="rounded-panel p-6 flex flex-col gap-4 transition-all duration-200"
-      style={{ backgroundColor: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: "12px" }}
+      style={{ backgroundColor: "#c7e8fd", border: "1px solid #BAE6FD", borderRadius: "12px" }}
       onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#BAE6FD")}
-      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#E0F2FE")}
+      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#c7e8fd")}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -351,7 +351,7 @@ function LiveCCTVCard() {
       )}
 
       {error && (
-        <div className="rounded-card px-3 py-2 text-xs" style={{ backgroundColor: "#E0F2FE", border: "1px solid #7DD3FC", color: "#0C4A6E", borderRadius: "8px" }}>
+        <div className="rounded-card px-3 py-2 text-xs" style={{ backgroundColor: "#c7e8fd", border: "1px solid #7DD3FC", color: "#0C4A6E", borderRadius: "8px" }}>
           {error}
         </div>
       )}
@@ -390,13 +390,13 @@ export default function Home() {
           <div className="flex items-center justify-center gap-3 mb-5">
             <span
               className="px-3 py-1 text-xs font-medium rounded-full"
-              style={{ backgroundColor: "#E0F2FE", color: "#0284C7", border: "1px solid #BAE6FD" }}
+              style={{ backgroundColor: "#c7e8fd", color: "#0284C7", border: "1px solid #BAE6FD" }}
             >
               ✦ System Ready
             </span>
             <span
               className="px-3 py-1 text-xs font-medium rounded-full"
-              style={{ backgroundColor: "#E0F2FE", color: "#0284C7", border: "1px solid #BAE6FD" }}
+              style={{ backgroundColor: "#c7e8fd", color: "#0284C7", border: "1px solid #BAE6FD" }}
             >
               ✦ Models Loaded
             </span>

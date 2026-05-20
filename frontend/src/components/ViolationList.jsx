@@ -25,7 +25,7 @@ export default function ViolationList({ violations = [] }) {
         {violations.length === 0 ? (
           <div
             className="flex items-center justify-center gap-2 py-5 rounded-card text-sm"
-            style={{ backgroundColor: "#E0F2FE", borderRadius: "8px" }}
+            style={{ backgroundColor: "#c7e8fd", borderRadius: "8px" }}
           >
             <CheckIcon />
             <span style={{ color: "#0284C7" }}>No violations detected</span>
@@ -36,7 +36,7 @@ export default function ViolationList({ violations = [] }) {
               key={i}
               className="flex items-center justify-between px-3 py-2.5 rounded-card"
               style={{
-                backgroundColor: "#E0F2FE",
+                backgroundColor: "#c7e8fd",
                 borderLeft: "3px solid #0284C7",
                 borderRadius: "8px",
               }}

@@ -9,7 +9,7 @@ export default function Navbar() {
   return (
     <nav
       style={{
-        backgroundColor: "#E0F2FE",
+        backgroundColor: "#c7e8fd",
         borderBottom: "1px solid #BAE6FD",
       }}
       className="sticky top-0 z-50"

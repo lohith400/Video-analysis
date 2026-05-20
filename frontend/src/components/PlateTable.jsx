@@ -23,7 +23,7 @@ export default function PlateTable({ plates = [] }) {
         {/* Table Header */}
         <div
           className="grid text-xs font-semibold px-3 py-2"
-          style={{ backgroundColor: "#E0F2FE", color: "#0C4A6E", gridTemplateColumns: "1fr 1fr 1fr" }}
+          style={{ backgroundColor: "#c7e8fd", color: "#0C4A6E", gridTemplateColumns: "1fr 1fr 1fr" }}
         >
           <span>#</span>
           <span>Plate No.</span>
@@ -45,7 +45,7 @@ export default function PlateTable({ plates = [] }) {
                 key={i}
                 className="grid text-xs px-3 py-2 items-center"
                 style={{
-                  backgroundColor: i % 2 === 0 ? "#F0F9FF" : "#E0F2FE",
+                  backgroundColor: i % 2 === 0 ? "#F0F9FF" : "#c7e8fd",
                   gridTemplateColumns: "1fr 1fr 1fr",
                   borderTop: "1px solid #BAE6FD",
                 }}

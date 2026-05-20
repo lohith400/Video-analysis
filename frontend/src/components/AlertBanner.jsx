@@ -32,7 +32,7 @@ export default function AlertBanner({ violation, onDismiss }) {
     <div
       className="slide-up flex items-center gap-4 px-5 py-3.5 rounded-card"
       style={{
-        backgroundColor: "#E0F2FE",
+        backgroundColor: "#c7e8fd",
         border: "1px solid #0284C7",
         borderRadius: "8px",
       }}

@@ -29,9 +29,9 @@ export default function MetricCard({ label, value, trend, suffix = "" }) {
   return (
     <div
       className="rounded-panel p-5 flex flex-col gap-1 transition-all duration-200"
-      style={{ backgroundColor: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: "12px" }}
+      style={{ backgroundColor: "#c7e8fd", border: "1px solid #BAE6FD", borderRadius: "12px" }}
       onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#BAE6FD")}
-      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#E0F2FE")}
+      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#c7e8fd")}
     >
       <div className="flex items-start justify-between">
         <span className="text-xs font-medium" style={{ color: "#475569" }}>

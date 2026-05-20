@@ -12,7 +12,7 @@ export default function VideoFeed({ frameData, fps, source, isActive }) {
     <div
       className="relative rounded-panel overflow-hidden"
       style={{
-        backgroundColor: "#E0F2FE",
+        backgroundColor: "#c7e8fd",
         border: isActive ? "1px solid #38BDF8" : "1px solid #BAE6FD",
         borderRadius: "12px",
         aspectRatio: "16/9",

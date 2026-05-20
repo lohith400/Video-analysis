@@ -128,7 +128,7 @@ export default function Analytics() {
               <div className="spinner" />
             </div>
           ) : error ? (
-            <div className="px-4 py-3 text-sm rounded-card" style={{ backgroundColor: "#E0F2FE", border: "1px solid #7DD3FC", color: "#0C4A6E", borderRadius: "8px" }}>
+            <div className="px-4 py-3 text-sm rounded-card" style={{ backgroundColor: "#c7e8fd", border: "1px solid #7DD3FC", color: "#0C4A6E", borderRadius: "8px" }}>
               {error}
             </div>
           ) : (
@@ -154,7 +154,7 @@ export default function Analytics() {
                     csvData.map((row, i) => (
                       <tr
                         key={i}
-                        style={{ backgroundColor: i % 2 === 0 ? "#F0F9FF" : "#E0F2FE" }}
+                        style={{ backgroundColor: i % 2 === 0 ? "#F0F9FF" : "#c7e8fd" }}
                       >
                         <td className="px-3 py-2 font-mono whitespace-nowrap" style={{ color: "#475569" }}>{row.timestamp}</td>
                         <td className="px-3 py-2 font-semibold" style={{ color: "#0284C7" }}>{row.total_vehicles}</td>
