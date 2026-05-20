@@ -32,13 +32,10 @@ export default function Navbar() {
             <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-sky-default live-pulse" />
           </div>
           <div className="flex flex-col">
-            <span className="font-heading font-extrabold text-base tracking-tight text-sky-dark leading-tight flex items-center gap-1.5">
+            <span className="font-heading font-extrabold text-base tracking-tight text-sky-dark leading-tight">
               IRIS
-              <span className="text-xs font-normal text-sky-default px-1.5 py-0.2 bg-sky-surface border border-sky-border/50 rounded-md font-heading font-semibold">
-                SYSTEM v2.0
-              </span>
             </span>
-            <span className="text-[10px] text-sky-default/80 tracking-widest uppercase font-mono font-bold leading-none">
+            <span className="text-[10px] text-[#0284C7] tracking-widest uppercase font-mono font-bold leading-none">
               Indian Road Intelligence
             </span>
           </div>
@@ -58,13 +55,13 @@ export default function Navbar() {
                   {isActive && (
                     <motion.div
                       layoutId="active-nav-indicator"
-                      className="absolute inset-0 bg-sky-default rounded-full shadow-md shadow-sky-default/20"
+                      className="absolute inset-0 bg-[#0284C7] rounded-full shadow-md shadow-[#0284C7]/20"
                       transition={{ type: "spring", stiffness: 380, damping: 30 }}
                     />
                   )}
                   <span
                     className={`relative z-10 font-heading transition-colors duration-300 ${
-                      isActive ? "text-sky-lightest font-bold" : "text-sky-dark hover:text-sky-default"
+                      isActive ? "text-white font-bold" : "text-sky-dark hover:text-[#0284C7]"
                     }`}
                   >
                     {label}

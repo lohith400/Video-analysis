@@ -255,8 +255,8 @@ export default function Home() {
             </span>
           </div>
 
-          <h1 className="font-heading font-extrabold text-4xl sm:text-5xl tracking-tight text-sky-dark leading-none mb-4 uppercase">
-            Indian Road <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-default to-sky-dark">Intelligence System</span>
+          <h1 className="font-heading font-extrabold text-4xl sm:text-5xl tracking-tight text-[#0C4A6E] leading-tight mb-4 uppercase">
+            Indian Road Intelligence System
           </h1>
 
           <p className="text-sm text-sky-dark/70 font-sans tracking-wide leading-relaxed max-w-xl mb-6">
