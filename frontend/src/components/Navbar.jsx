@@ -14,22 +14,8 @@ export default function Navbar() {
       <div className="max-w-screen-xl mx-auto px-6 py-3.5 flex items-center justify-between">
         {/* Left Logo and Title */}
         <div className="flex items-center gap-3 select-none">
-          <div className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-sky-surface border border-sky-border shadow-sm">
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#0284C7"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="relative z-10"
-            >
-              <path d="M3 22L9 2M21 22L15 2" />
-              <path d="M12 3v3M12 10v4M12 17v4" strokeDasharray="2 2" />
-            </svg>
-            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-sky-default live-pulse" />
+          <div className="relative flex items-center justify-center w-10 h-10 rounded-xl overflow-hidden shadow-sm border border-sky-border/40">
+            <img src="/logo.png" alt="IRIS Logo" className="w-full h-full object-cover" />
           </div>
           <div className="flex flex-col">
             <span className="font-heading font-extrabold text-base tracking-tight text-sky-dark leading-tight">

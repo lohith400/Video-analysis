@@ -16,7 +16,10 @@ import {
   RefreshCw,
   Clock,
   Gauge,
-  HelpCircle
+  HelpCircle,
+  Car,
+  Truck,
+  Bike
 } from "lucide-react";
 import VideoFeed from "../components/VideoFeed";
 import VehicleCounts from "../components/VehicleCounts";
@@ -29,6 +32,48 @@ const WS_URL  = "ws://localhost:8000/video-feed";
 const API_URL = "http://localhost:8000";
 const RECONNECT_DELAY_MS = 3000;
 const MAX_RECONNECTS     = 10;
+
+// ── Vehicle Icon SVG Component ─────────────────────────────────────────────
+function VehicleIcon({ type }) {
+  const cls = "w-5 h-5 text-[#0284C7]";
+  switch (type) {
+    case "car":
+      return <Car className={cls} strokeWidth={1.8} />;
+    case "truck":
+      return <Truck className={cls} strokeWidth={1.8} />;
+    case "bus":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="#0284C7" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+          <rect x="3" y="4" width="18" height="12" rx="2" />
+          <circle cx="7" cy="18" r="2" />
+          <circle cx="17" cy="18" r="2" />
+          <path d="M3 10h18M8 4v6M16 4v6" />
+        </svg>
+      );
+    case "motorcycle":
+    case "scooter":
+      return <Bike className={cls} strokeWidth={1.8} />;
+    case "bicycle":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="#0284C7" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+          <circle cx="5.5" cy="17.5" r="3.5" />
+          <circle cx="18.5" cy="17.5" r="3.5" />
+          <path d="M15 6a1 1 0 100-2 1 1 0 000 2zM12 17.5L9 12h5.5l2.5 3M5.5 17.5L9 12M18.5 17.5L16 11" />
+        </svg>
+      );
+    case "auto-rickshaw":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="#0284C7" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+          <path d="M5 16V9l7-3 7 3v7" />
+          <circle cx="7" cy="18" r="2" />
+          <circle cx="17" cy="18" r="2" />
+          <path d="M5 12h14M12 6v6" />
+        </svg>
+      );
+    default:
+      return <Sparkles className={cls} strokeWidth={1.8} />;
+  }
+}
 
 // ── Overall Video Summary Panel (Daylight Glass Edition) ───────────────────
 function VideoSummaryPanel({ summary }) {
@@ -70,14 +115,14 @@ function VideoSummaryPanel({ summary }) {
             key={cls}
             className="flex items-center gap-3 p-3 bg-white/50 border border-sky-border/40 rounded-xl shadow-sm"
           >
-            <div className="w-10 h-10 rounded-lg bg-sky-surface flex items-center justify-center text-xl shadow-inner">
-              {cls === "car" ? "🚗" : cls === "truck" ? "🚛" : cls === "bus" ? "🚌" : cls === "motorcycle" ? "🏍️" : cls === "scooter" ? "🛵" : cls === "bicycle" ? "🚲" : "🛺"}
+            <div className="w-10 h-10 rounded-lg bg-[#c7e8fd] flex items-center justify-center shadow-inner">
+              <VehicleIcon type={cls} />
             </div>
             <div>
-              <div className="font-mono text-xl font-extrabold text-sky-default leading-tight">
+              <div className="font-mono text-xl font-extrabold text-[#0284C7] leading-tight">
                 {count}
               </div>
-              <div className="text-[10px] font-heading font-bold text-sky-dark/60 uppercase tracking-wide">{cls}</div>
+              <div className="text-[10px] font-heading font-bold text-[#0C4A6E]/60 uppercase tracking-wide">{cls}</div>
             </div>
           </div>
         )) : (

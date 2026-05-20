@@ -570,26 +570,6 @@ export default function Home() {
 
       </div>
 
-      {/* Scrolling stock ticker strip footer */}
-      <div className="w-full overflow-hidden border-y border-sky-border/40 py-3 bg-white/40 backdrop-blur-md select-none mt-6">
-        <div className="ticker-content whitespace-nowrap flex gap-12 font-mono text-xs font-semibold tracking-wider text-sky-dark select-none">
-          <span>⚡ IRIS CORE OPS ONLINE</span>
-          <span>🚙 VEHICLES SCANNED: <CountUp to={12480} /></span>
-          <span>🪖 HELMET COMPLIANCE ALERTS: <CountUp to={340} /></span>
-          <span>📋 ANPR READS COMPLETED: <CountUp to={8920} /></span>
-          <span>📡 RTSP PIPELINE: OK</span>
-          <span>⚡ CORE CPU PROCESSORS: 8 ACTIVE</span>
-          
-          {/* Duplicate to create a seamless carousel infinite wrap */}
-          <span>⚡ IRIS CORE OPS ONLINE</span>
-          <span>🚙 VEHICLES SCANNED: <CountUp to={12480} /></span>
-          <span>🪖 HELMET COMPLIANCE ALERTS: <CountUp to={340} /></span>
-          <span>📋 ANPR READS COMPLETED: <CountUp to={8920} /></span>
-          <span>📡 RTSP PIPELINE: OK</span>
-          <span>⚡ CORE CPU PROCESSORS: 8 ACTIVE</span>
-        </div>
-      </div>
-
     </div>
   );
 }
