@@ -152,6 +152,42 @@ function LivePanel({ counts, plates, violations, isVideoProcessing }) {
   );
 }
 
+// Helper to normalize backend vehicle counts to the lowercase, hyphenated keys expected by the frontend
+const mapVehicleCounts = (backendCounts) => {
+  if (!backendCounts) return {};
+  const mapped = {
+    car: 0,
+    motorcycle: 0,
+    bus: 0,
+    truck: 0,
+    "auto-rickshaw": 0,
+    bicycle: 0,
+    others: 0,
+    total: backendCounts.total || 0,
+  };
+
+  Object.entries(backendCounts).forEach(([key, val]) => {
+    const k = key.toLowerCase();
+    if (k === "car") {
+      mapped.car = val;
+    } else if (k === "bike/motorcycle" || k === "motorcycle" || k === "scooter") {
+      mapped.motorcycle += val;
+    } else if (k === "bus") {
+      mapped.bus = val;
+    } else if (k === "truck") {
+      mapped.truck = val;
+    } else if (k === "auto rickshaw" || k === "auto-rickshaw") {
+      mapped["auto-rickshaw"] = val;
+    } else if (k === "bicycle") {
+      mapped.bicycle = val;
+    } else if (k === "van" || k === "others") {
+      mapped.others += val;
+    }
+  });
+
+  return mapped;
+};
+
 // ── Main Page Component ───────────────────────────────────────────────────
 export default function LiveAnalysis() {
   const navigate = useNavigate();
@@ -241,7 +277,7 @@ export default function LiveAnalysis() {
           setVideoProcessing(false);
           setVideoSummary(null);
 
-          if (data.counts) setCounts(data.counts);
+          if (data.counts) setCounts(mapVehicleCounts(data.counts));
 
           if (Array.isArray(data.plates) && data.plates.length > 0) {
             setPlates((prev) => {
@@ -267,19 +303,23 @@ export default function LiveAnalysis() {
           // VIDEO processing mode
           if (data.video_done && data.video_summary) {
             setVideoProcessing(false);
-            setVideoSummary(data.video_summary);
+            const mappedSummary = {
+              ...data.video_summary,
+              counts: mapVehicleCounts(data.video_summary.counts)
+            };
+            setVideoSummary(mappedSummary);
 
             if (Array.isArray(data.video_summary.plates)) {
               setPlates(data.video_summary.plates);
             }
             if (data.video_summary.counts) {
-              setCounts(data.video_summary.counts);
+              setCounts(mappedSummary.counts);
             }
           } else {
             setVideoProcessing(true);
             setVideoSummary(null);
 
-            if (data.counts) setCounts(data.counts);
+            if (data.counts) setCounts(mapVehicleCounts(data.counts));
 
             if (Array.isArray(data.plates) && data.plates.length > 0) {
               setPlates((prev) => {
