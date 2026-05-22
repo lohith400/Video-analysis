@@ -15,14 +15,24 @@ venv/
 env/
 ENV/
 
-# ── ML Models (large binary files) ────────────────────────────────────────
-models/*.pt
-models/*.pth
-models/*.onnx
-models/*.weights
-models/*.bin
-# Keep the .gitkeep so the models/ folder itself is tracked
+# ── ML Models & Weights (Ignore all large model files recursively) ─────────
+*.pt
+*.pth
+*.onnx
+*.weights
+*.bin
+yolov8n.pt
+yolo26n.pt
+yolo*.pt
+# Keep models/ folder structure but ignore all weights inside it
+!models/
+models/*
 !models/.gitkeep
+
+# ── Datasets (Ignore entire dataset folders) ──────────────────────────────
+plate_dataset/
+dataset/
+runs/
 
 # ── Uploaded videos / images ───────────────────────────────────────────────
 uploads/
@@ -35,9 +45,12 @@ uploads/
 *.png
 *.bmp
 
-# ── Generated data ─────────────────────────────────────────────────────────
+# ── Generated data / Logs ──────────────────────────────────────────────────
 traffic_log.csv
 *.csv
+*.log
+logs/
+train_error.log
 
 # ── Frontend build & deps ──────────────────────────────────────────────────
 frontend/node_modules/
@@ -47,13 +60,11 @@ frontend/build/
 
 # ── Zone.Identifier files (Windows WSL artefacts) ─────────────────────────
 *Zone.Identifier
+**/*Zone.Identifier
+**/*:Zone.Identifier
 
 # ── IDE / OS ───────────────────────────────────────────────────────────────
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
-
-# ── Logs ──────────────────────────────────────────────────────────────────
-*.log
-logs/

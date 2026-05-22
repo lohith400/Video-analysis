@@ -18,58 +18,44 @@ def get_device() -> str:
     return "cuda" if torch.cuda.is_available() else "cpu"
 
 
-# ── PlateDetector DISABLED ─────────────────────────────────────────────────
-# Uncomment this entire class when models/license_plate_detector.pt is ready.
-#
-# class PlateDetector:
-#     """Runs license_plate_detector.pt on a vehicle crop (worker thread safe)."""
-#
-#     def __init__(self, device: str):
-#         plate_path = Path(config.PLATE_MODEL)
-#         if not plate_path.exists():
-#             raise FileNotFoundError(
-#                 f"Plate model not found: {plate_path}. "
-#                 "Place license_plate_detector.pt in models/"
-#             )
-#         self.device = device
-#         self.model = YOLO(str(plate_path))
-#         self.model.to(device)
-#
-#     def detect_plate_region(
-#         self, vehicle_crop: np.ndarray
-#     ) -> Optional[np.ndarray]:
-#         if vehicle_crop is None or vehicle_crop.size == 0:
-#             return None
-#         results = self.model.predict(
-#             vehicle_crop,
-#             conf=config.PLATE_CONF_THRESHOLD,
-#             iou=config.IOU_THRESHOLD,
-#             half=config.USE_HALF,
-#             device=self.device,
-#             verbose=False,
-#         )
-#         if not results or results[0].boxes is None or len(results[0].boxes) == 0:
-#             return None
-#         boxes = results[0].boxes
-#         best_idx = int(boxes.conf.argmax().item())
-#         x1, y1, x2, y2 = boxes.xyxy[best_idx].cpu().numpy().astype(int)
-#         h, w = vehicle_crop.shape[:2]
-#         x1, y1 = max(0, x1), max(0, y1)
-#         x2, y2 = min(w, x2), min(h, y2)
-#         if x2 <= x1 or y2 <= y1:
-#             return None
-#         return vehicle_crop[y1:y2, x1:x2].copy()
-# ──────────────────────────────────────────────────────────────────────────
-
-
 class PlateDetector:
-    """STUB — does nothing until plate model is available."""
+    """Runs license_plate_detector.pt on a vehicle crop (worker thread safe)."""
 
     def __init__(self, device: str):
-        print("[PlateDetector] STUB — no plate model loaded.")
+        plate_path = Path(config.PLATE_MODEL)
+        if not plate_path.exists():
+            raise FileNotFoundError(
+                f"Plate model not found: {plate_path}. "
+                "Place license_plate_detector.pt in models/"
+            )
+        self.device = device
+        self.model = YOLO(str(plate_path))
+        self.model.to(device)
 
-    def detect_plate_region(self, vehicle_crop: np.ndarray) -> Optional[np.ndarray]:
-        return None
+    def detect_plate_region(
+        self, vehicle_crop: np.ndarray
+    ) -> Optional[np.ndarray]:
+        if vehicle_crop is None or vehicle_crop.size == 0:
+            return None
+        results = self.model.predict(
+            vehicle_crop,
+            conf=config.PLATE_CONF_THRESHOLD,
+            iou=config.IOU_THRESHOLD,
+            half=config.USE_HALF,
+            device=self.device,
+            verbose=False,
+        )
+        if not results or results[0].boxes is None or len(results[0].boxes) == 0:
+            return None
+        boxes = results[0].boxes
+        best_idx = int(boxes.conf.argmax().item())
+        x1, y1, x2, y2 = boxes.xyxy[best_idx].cpu().numpy().astype(int)
+        h, w = vehicle_crop.shape[:2]
+        x1, y1 = max(0, x1), max(0, y1)
+        x2, y2 = min(w, x2), min(h, y2)
+        if x2 <= x1 or y2 <= y1:
+            return None
+        return vehicle_crop[y1:y2, x1:x2].copy()
 
 
 def crop_vehicle(frame: np.ndarray, bbox: Tuple[int, int, int, int]) -> np.ndarray:

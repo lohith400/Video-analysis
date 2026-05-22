@@ -3,7 +3,7 @@ import cv2
 import os
 
 def main():
-    model_path = 'runs/detect/indian_plate_v1/weights/best.pt'
+    model_path = 'models/license_plate_detector.pt'
     video_path = 'videos/L1.mp4'
     output_path = 'test_plate_detection.jpg'
     

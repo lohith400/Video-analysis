@@ -18,17 +18,16 @@ def main():
     print("Starting fine-tuning...")
     results = model.train(
         data     = 'plate_dataset/data.yaml',
-        epochs   = 50,
+        epochs   = 12,
         imgsz    = 640,
-        batch    = 16,                 # Reduce to 8 or 4 if you run out of VRAM (Out of Memory)
+        batch    = 8,                 # Reduced from 16 to prevent CUDA Out Of Memory on 6GB laptop GPU
         name     = 'indian_plate_v1',
         device   = 0 if torch.cuda.is_available() else 'cpu',
         amp      = True,               # Correct way to enable fast FP16 mixed precision training (replaces half=True)
-        patience = 15,                 # Stops early if mAP stops improving
         save     = True,
-        val      = True,
+        val      = False,              # Disable validation during training to prevent memory spikes and WSL2 crashes
         plots    = True,
-        verbose  = True,
+        verbose  = True, workers = 0,
     )
 
     print("\n✅ Training complete!")
