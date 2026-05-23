@@ -55,7 +55,7 @@ def test():
                         track_id = frame_idx * 100 + i  # Unique track ID per detection for testing
                         if ocr.needs_ocr(track_id):
                             print(f"Submitting crop for dummy track {track_id} ({cls_name})...")
-                            ocr.submit_vehicle_crop(track_id, crop)
+                            ocr.submit_vehicle_crop(track_id, crop, box.astype(int))
         
         ocr.drain_completed()
         frame_idx += 1

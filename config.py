@@ -6,7 +6,7 @@ CSV_PATH = "traffic_log.csv"
 CSV_UPDATE_INTERVAL = 1  # seconds
 
 CONF_THRESHOLD = 0.40  # Raised from 0.25 to prevent low-confidence noise and track fragmentation
-PLATE_CONF_THRESHOLD = 0.5
+PLATE_CONF_THRESHOLD = 0.25  # Lowered from 0.5 to catch plates with lower initial model confidences on fast vehicles
 IOU_THRESHOLD = 0.5
 USE_HALF = True
 

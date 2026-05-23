@@ -38,20 +38,19 @@ def draw_annotations(
         
         _draw_label(out, label_text, x1, y1, color)
         
-        # Draw plate text and a bright green bounding box around the license plate itself
+        # Draw plate text below the vehicle if OCR succeeded
         plate = plate_texts.get(v.track_id)
         if plate:
             _draw_label_below(out, plate, x1, y1, color)
             
-            # Offset the relative plate coordinates by the vehicle bounding box (x1, y1)
-            if plate_boxes and v.track_id in plate_boxes:
-                px1, py1, px2, py2 = plate_boxes[v.track_id]
-                abs_px1 = x1 + px1
-                abs_py1 = y1 + py1
-                abs_px2 = x1 + px2
-                abs_py2 = y1 + py2
-                # Draw a sleek bright green bounding box around the license plate
-                cv2.rectangle(out, (abs_px1, abs_py1), (abs_px2, abs_py2), (0, 255, 0), 2)
+        # Draw a sleek bright green bounding box around the license plate itself if coordinate is detected
+        if plate_boxes and v.track_id in plate_boxes:
+            px1, py1, px2, py2 = plate_boxes[v.track_id]
+            abs_px1 = x1 + px1
+            abs_py1 = y1 + py1
+            abs_px2 = x1 + px2
+            abs_py2 = y1 + py2
+            cv2.rectangle(out, (abs_px1, abs_py1), (abs_px2, abs_py2), (0, 255, 0), 2)
 
     # 3. Draw heads-up display (HUD)
     _draw_hud(out, category_counts, fps, total_plates, counter)

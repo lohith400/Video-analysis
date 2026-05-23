@@ -167,7 +167,7 @@ def main() -> int:
                         if _should_run_plate_pipeline(v, ocr):
                             crop = crop_vehicle(frame, v.bbox)
                             if crop.size > 0:
-                                ocr.submit_vehicle_crop(v.track_id, crop)
+                                ocr.submit_vehicle_crop(v.track_id, crop, v.bbox)
                 ocr.drain_completed()
 
             t_now = time.perf_counter()

@@ -242,7 +242,7 @@ def _run_analysis(source, source_type: str) -> None:
                             try:
                                 crop = crop_vehicle(frame, v.bbox)
                                 if crop.size > 0:
-                                    _ocr.submit_vehicle_crop(v.track_id, crop)
+                                    _ocr.submit_vehicle_crop(v.track_id, crop, v.bbox)
                             except Exception:
                                 pass
                 try:

@@ -3,10 +3,11 @@ Performs license plate region extraction and EasyOCR text extraction asynchronou
 
 from __future__ import annotations
 
+import collections
 import re
 import threading
 from concurrent.futures import Future, ThreadPoolExecutor
-from typing import Dict, Optional, Set
+from typing import Dict, Optional, Set, Tuple, List
 import cv2
 import easyocr
 import numpy as np
@@ -140,6 +141,85 @@ def is_valid_plate(text: str) -> bool:
     return config.MIN_PLATE_CHARS <= len(text) <= config.MAX_PLATE_CHARS
 
 
+# Indian Plate regex format checker
+INDIAN_PLATE_REGEX = re.compile(r'^[A-Z]{2}[0-9]{2}[A-Z]{1,2}[0-9]{4}$')
+
+
+def nms(boxes, scores, iou_threshold=0.5):
+    """Pure Python Non-Maximum Suppression (NMS) to merge overlapping plate bboxes."""
+    if len(boxes) == 0:
+        return []
+    import numpy as np
+    boxes = np.array(boxes)
+    scores = np.array(scores)
+    
+    x1 = boxes[:, 0]
+    y1 = boxes[:, 1]
+    x2 = boxes[:, 2]
+    y2 = boxes[:, 3]
+    
+    areas = (x2 - x1) * (y2 - y1)
+    order = scores.argsort()[::-1]
+    
+    keep = []
+    while order.size > 0:
+        i = order[0]
+        keep.append(i)
+        
+        xx1 = np.maximum(x1[i], x1[order[1:]])
+        yy1 = np.maximum(y1[i], y1[order[1:]])
+        xx2 = np.minimum(x2[i], x2[order[1:]])
+        yy2 = np.minimum(y2[i], y2[order[1:]])
+        
+        w = np.maximum(0.0, xx2 - xx1)
+        h = np.maximum(0.0, yy2 - yy1)
+        inter = w * h
+        
+        ovr = inter / (areas[i] + areas[order[1:]] - inter)
+        inds = np.where(ovr <= iou_threshold)[0]
+        order = order[inds + 1]
+        
+    return keep
+
+
+def preprocess_vehicle_crop_for_detection(vehicle_crop: np.ndarray) -> np.ndarray:
+    """Sharpens vehicle crop prior to plate detection: Grayscale -> CLAHE 2.0 -> BGR."""
+    if vehicle_crop is None or vehicle_crop.size == 0:
+        return vehicle_crop
+    gray = cv2.cvtColor(vehicle_crop, cv2.COLOR_BGR2GRAY)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    gray = clahe.apply(gray)
+    return cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+
+
+def preprocess_plate_for_ocr(plate_crop: np.ndarray) -> np.ndarray:
+    """Applies advanced preprocessing: upscale to min 200px, grayscale, CLAHE 3.0, bilateral filter, Otsu threshold."""
+    if plate_crop is None or plate_crop.size == 0:
+        return plate_crop
+        
+    h, w = plate_crop.shape[:2]
+    # 1. Upscale plate crop to minimum 200px height (keep aspect ratio)
+    if h < 200:
+        scale = 200.0 / h
+        new_w = int(w * scale)
+        plate_crop = cv2.resize(plate_crop, (new_w, 200), interpolation=cv2.INTER_CUBIC)
+        
+    # 2. Convert to grayscale
+    gray = cv2.cvtColor(plate_crop, cv2.COLOR_BGR2GRAY)
+    
+    # 3. Apply CLAHE (clipLimit=3.0)
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+    gray = clahe.apply(gray)
+    
+    # 4. Apply cv2.bilateralFilter to remove noise while keeping edges sharp
+    denoised = cv2.bilateralFilter(gray, 11, 17, 17)
+    
+    # 5. Apply Otsu thresholding
+    _, thresholded = cv2.threshold(denoised, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    
+    return thresholded
+
+
 class OCREngine:
     """Runs license plate detection and EasyOCR asynchronously in a worker thread pool."""
 
@@ -149,10 +229,17 @@ class OCREngine:
         self.detector = PlateDetector(device)
         self.reader = easyocr.Reader(['en'], gpu=(device == "cuda"))
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
+        
+        # State tracking
         self.results: Dict[int, str] = {}  # track_id -> plate text
         self.plate_boxes: Dict[int, Tuple[int, int, int, int]] = {}  # track_id -> relative bbox (px1, py1, px2, py2)
         self.pending_futures: Dict[int, Future[Optional[Tuple[str, Tuple[int, int, int, int]]]]] = {}  # track_id -> Future
         self.attempts: Dict[int, int] = {}  # track_id -> number of attempts
+        
+        # rolling buffers for stabilization and voting
+        self.vehicle_crop_buffer: Dict[int, List[Tuple[np.ndarray, Tuple[int, int, int, int]]]] = {}  # track_id -> [(crop, bbox), ...]
+        self.ocr_history: Dict[int, List[str]] = {}  # track_id -> list of valid OCR texts (up to 10)
+        
         print(f"[OCREngine] Initialized on {device} with {max_workers} thread pool workers.")
 
     def needs_ocr(self, track_id: int) -> bool:
@@ -167,41 +254,144 @@ class OCREngine:
                 return False
             return True
 
-    def submit_vehicle_crop(self, track_id: int, vehicle_crop: np.ndarray) -> None:
-        """Submits a vehicle crop for plate extraction and EasyOCR in the thread pool."""
+    def submit_vehicle_crop(self, track_id: int, vehicle_crop: np.ndarray, vehicle_bbox: Tuple[int, int, int, int]) -> None:
+        """Submits a rolling window of 3 vehicle crops to the thread pool for stabilization and OCR."""
         if not self.needs_ocr(track_id):
             return
 
         with self._lock:
-            self.attempts[track_id] = self.attempts.get(track_id, 0) + 1
-            future = self.executor.submit(self._process_crop, track_id, vehicle_crop)
-            self.pending_futures[track_id] = future
+            if track_id not in self.vehicle_crop_buffer:
+                self.vehicle_crop_buffer[track_id] = []
+            self.vehicle_crop_buffer[track_id].append((vehicle_crop.copy(), vehicle_bbox))
+            
+            # Keep buffer size at max 3
+            if len(self.vehicle_crop_buffer[track_id]) > 3:
+                self.vehicle_crop_buffer[track_id].pop(0)
 
-    def _process_crop(self, track_id: int, vehicle_crop: np.ndarray) -> Optional[Tuple[str, Tuple[int, int, int, int]]]:
-        """Runs inside the thread pool: detects plate crop, preprocesses it, and applies OCR."""
+            # Only run stabilization and OCR when we have exactly 3 consecutive crops
+            if len(self.vehicle_crop_buffer[track_id]) == 3:
+                self.attempts[track_id] = self.attempts.get(track_id, 0) + 1
+                crops_to_process = list(self.vehicle_crop_buffer[track_id])
+                future = self.executor.submit(self._process_crops_stabilized, track_id, crops_to_process)
+                self.pending_futures[track_id] = future
+
+    def _process_crops_stabilized(
+        self, track_id: int, crops_to_process: List[Tuple[np.ndarray, Tuple[int, int, int, int]]]
+    ) -> Optional[Tuple[str, Tuple[int, int, int, int], bool]]:
+        """Runs inside the thread pool: stabilizes plate detection across 3 frames, preprocesses and applies OCR with fallbacks."""
         try:
-            # 1. Extract plate bounding box and crop
-            detect_res = self.detector.detect_plate_bbox(vehicle_crop)
-            if detect_res is None:
+            all_plates = []  # List of tuples: (abs_bbox, confidence, plate_crop, vehicle_bbox)
+            
+            for vehicle_crop, (vx1, vy1, vx2, vy2) in crops_to_process:
+                # 1. Preprocess the vehicle crop for edge sharpness
+                preprocessed_vehicle = preprocess_vehicle_crop_for_detection(vehicle_crop)
+                
+                # 2. Run plate detector on the preprocessed crop
+                results = self.detector.model.predict(
+                    preprocessed_vehicle,
+                    conf=config.PLATE_CONF_THRESHOLD,
+                    iou=config.IOU_THRESHOLD,
+                    half=config.USE_HALF,
+                    device=self.device,
+                    verbose=False,
+                )
+                if not results or results[0].boxes is None:
+                    continue
+                    
+                boxes = results[0].boxes
+                for i in range(len(boxes)):
+                    conf = float(boxes.conf[i].item())
+                    # Skip if confidence is less than PLATE_CONF_THRESHOLD
+                    if conf < config.PLATE_CONF_THRESHOLD:
+                        continue
+                        
+                    x1, y1, x2, y2 = boxes.xyxy[i].cpu().numpy().astype(int)
+                    h, w = vehicle_crop.shape[:2]
+                    x1, y1 = max(0, x1), max(0, y1)
+                    x2, y2 = min(w, x2), min(h, y2)
+                    if x2 <= x1 or y2 <= y1:
+                        continue
+                        
+                    # Calculate absolute box in frame coordinates
+                    abs_x1 = vx1 + x1
+                    abs_y1 = vy1 + y1
+                    abs_x2 = vx1 + x2
+                    abs_y2 = vy1 + y2
+                    
+                    plate_crop = vehicle_crop[y1:y2, x1:x2].copy()
+                    all_plates.append(((abs_x1, abs_y1, abs_x2, abs_y2), conf, plate_crop, (vx1, vy1, vx2, vy2)))
+                    
+            if not all_plates:
                 return None
-            (px1, py1, px2, py2), plate_crop = detect_res
+                
+            # Run NMS to merge overlapping boxes across all 3 frames
+            bboxes = [p[0] for p in all_plates]
+            confs = [p[1] for p in all_plates]
+            
+            keep_indices = nms(bboxes, confs, iou_threshold=0.5)
+            if not keep_indices:
+                return None
+                
+            # Keep the highest confidence detection
+            best_idx = keep_indices[0]
+            best_abs_bbox, best_conf, best_plate_crop, (vx1, vy1, vx2, vy2) = all_plates[best_idx]
+            
+            # Recalculate plate bbox relative to the selected vehicle frame's coordinates
+            abs_px1, abs_py1, abs_px2, abs_py2 = best_abs_bbox
+            rel_px1 = abs_px1 - vx1
+            rel_py1 = abs_py1 - vy1
+            rel_px2 = abs_px2 - vx1
+            rel_py2 = abs_py2 - vy1
+            rel_bbox = (rel_px1, rel_py1, rel_px2, rel_py2)
 
-            # Apply advanced preprocessing to make characters highly visible
-            processed_plate = preprocess_plate_image(plate_crop)
+            # Apply advanced binarization OCR preprocessing
+            thresholded_plate = preprocess_plate_for_ocr(best_plate_crop)
 
-            # 2. Run EasyOCR on the preprocessed plate crop with restrict allowlist
+            # Run EasyOCR with detail=0, paragraph=False on standard binarized plate
             results = self.reader.readtext(
-                processed_plate,
-                allowlist='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+                thresholded_plate,
+                allowlist='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+                detail=0,
+                paragraph=False
             )
-            if not results:
-                return None
+            raw_text = "".join(results)
+            raw_text = re.sub(r'[^A-Z0-9]', '', raw_text.upper())
 
-            # 3. Join detected words and apply Indian plate correction heuristics
-            text = "".join([res[1] for res in results])
-            corrected = clean_and_correct_indian_plate(text)
-            if corrected:
-                return corrected, (px1, py1, px2, py2)
+            # Apply position-based Indian plate corrections first
+            corrected_text = clean_and_correct_indian_plate(raw_text)
+            
+            is_valid = False
+            text = raw_text
+            if corrected_text is not None:
+                # Check valid plate regex on corrected standard output
+                is_valid = INDIAN_PLATE_REGEX.match(corrected_text) is not None
+                text = corrected_text
+                
+            if not is_valid:
+                # Try reading again with the inverted image
+                inverted_plate = cv2.bitwise_not(thresholded_plate)
+                results_inv = self.reader.readtext(
+                    inverted_plate,
+                    allowlist='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+                    detail=0,
+                    paragraph=False
+                )
+                raw_text_inv = "".join(results_inv)
+                raw_text_inv = re.sub(r'[^A-Z0-9]', '', raw_text_inv.upper())
+                
+                corrected_text_inv = clean_and_correct_indian_plate(raw_text_inv)
+                if corrected_text_inv is not None:
+                    # Check valid plate regex on corrected inverted output
+                    if INDIAN_PLATE_REGEX.match(corrected_text_inv) is not None:
+                        text = corrected_text_inv
+                        is_valid = True
+                    elif not text:  # Fallback to corrected inverted text if standard text is empty
+                        text = corrected_text_inv
+                elif not text:
+                    text = raw_text_inv
+
+            # Return text, relative bounding box, and whether the text matches standard Indian format
+            return text, rel_bbox, is_valid
         except Exception as exc:
             print(f"[OCREngine] Error processing track {track_id}: {exc}")
         return None
@@ -215,9 +405,34 @@ class OCREngine:
                     try:
                         result = future.result()
                         if result is not None:
-                            plate_text, bbox = result
-                            self.results[track_id] = plate_text
-                            self.plate_boxes[track_id] = bbox
+                            plate_text, rel_bbox, is_valid = result
+                            
+                            # Always update relative plate bounding box to render the green box instantly
+                            self.plate_boxes[track_id] = rel_bbox
+                            
+                            # Print a debug message to monitor OCR progress
+                            print(f"[OCREngine] Track #{track_id} OCR read: '{plate_text}' (is_valid: {is_valid})")
+                            
+                            if is_valid:
+                                # 1. Update rolling valid OCR history for majority voting (up to 10 frames)
+                                if track_id not in self.ocr_history:
+                                    self.ocr_history[track_id] = []
+                                self.ocr_history[track_id].append(plate_text)
+                                if len(self.ocr_history[track_id]) > 10:
+                                    self.ocr_history[track_id].pop(0)
+                                    
+                                # 2. Calculate majority vote
+                                counter = collections.Counter(self.ocr_history[track_id])
+                                most_common_plate, count = counter.most_common(1)[0]
+                                confidence = (count / len(self.ocr_history[track_id])) * 100
+                                
+                                # 3. Print final output to console with exact format
+                                import time
+                                timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+                                print(f"[{timestamp}] Vehicle #{track_id} → Plate: {most_common_plate} (confidence: {confidence:.0f}%)")
+                                
+                                # 4. Save results
+                                self.results[track_id] = most_common_plate
                     except Exception as exc:
                         print(f"[OCREngine] Future error for track {track_id}: {exc}")
                     completed_ids.append(track_id)
