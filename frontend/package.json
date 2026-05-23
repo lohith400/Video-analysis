@@ -22,8 +22,5 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
-  },
-  "optionalDependencies": {
-    "@esbuild/linux-x64": "^0.28.0"
   }
 }

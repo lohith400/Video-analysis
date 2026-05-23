@@ -177,6 +177,7 @@ def main() -> int:
             t_prev = t_now
 
             plate_map = ocr.get_all_plates() if use_ocr else {}
+            plate_boxes = ocr.get_all_plate_boxes() if use_ocr else {}
             total_plates = ocr.total_plates_detected if use_ocr else 0
 
             annotated = draw_annotations(
@@ -187,6 +188,7 @@ def main() -> int:
                 fps,
                 total_plates,
                 counter=counter,
+                plate_boxes=plate_boxes,
             )
 
             cv2.imshow(config.WINDOW_NAME, annotated)
@@ -223,11 +225,17 @@ def main() -> int:
 
 
 def _should_run_plate_pipeline(vehicle: TrackedVehicle, ocr) -> bool:
-    from ocr_engine import OCREngine
     if vehicle.vehicle_class in config.NO_PLATE_CLASSES:
         return False
     if vehicle.vehicle_class not in config.PLATE_DETECTION_CLASSES:
         return False
+    
+    # Check if the vehicle is large/close enough to have a readable license plate
+    x1, y1, x2, y2 = vehicle.bbox
+    bbox_height = y2 - y1
+    if bbox_height < config.MIN_VEHICLE_HEIGHT_FOR_OCR:
+        return False
+        
     return ocr.needs_ocr(vehicle.track_id)
 
 

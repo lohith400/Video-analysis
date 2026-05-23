@@ -57,6 +57,32 @@ class PlateDetector:
             return None
         return vehicle_crop[y1:y2, x1:x2].copy()
 
+    def detect_plate_bbox(
+        self, vehicle_crop: np.ndarray
+    ) -> Optional[Tuple[Tuple[int, int, int, int], np.ndarray]]:
+        """Returns the plate bounding box coordinates (x1, y1, x2, y2) and the crop image."""
+        if vehicle_crop is None or vehicle_crop.size == 0:
+            return None
+        results = self.model.predict(
+            vehicle_crop,
+            conf=config.PLATE_CONF_THRESHOLD,
+            iou=config.IOU_THRESHOLD,
+            half=config.USE_HALF,
+            device=self.device,
+            verbose=False,
+        )
+        if not results or results[0].boxes is None or len(results[0].boxes) == 0:
+            return None
+        boxes = results[0].boxes
+        best_idx = int(boxes.conf.argmax().item())
+        x1, y1, x2, y2 = boxes.xyxy[best_idx].cpu().numpy().astype(int)
+        h, w = vehicle_crop.shape[:2]
+        x1, y1 = max(0, x1), max(0, y1)
+        x2, y2 = min(w, x2), min(h, y2)
+        if x2 <= x1 or y2 <= y1:
+            return None
+        return (x1, y1, x2, y2), vehicle_crop[y1:y2, x1:x2].copy()
+
 
 def crop_vehicle(frame: np.ndarray, bbox: Tuple[int, int, int, int]) -> np.ndarray:
     x1, y1, x2, y2 = bbox

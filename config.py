@@ -5,7 +5,7 @@ PLATE_MODEL = "models/license_plate_detector.pt"
 CSV_PATH = "traffic_log.csv"
 CSV_UPDATE_INTERVAL = 1  # seconds
 
-CONF_THRESHOLD = 0.25  # Lowered from 0.40 to capture small/distant vehicles; tracker handles noise
+CONF_THRESHOLD = 0.40  # Raised from 0.25 to prevent low-confidence noise and track fragmentation
 PLATE_CONF_THRESHOLD = 0.5
 IOU_THRESHOLD = 0.5
 USE_HALF = True
@@ -14,7 +14,11 @@ MIN_PLATE_CHARS = 4
 MAX_PLATE_CHARS = 10
 
 # Minimum active frames a track must exist to filter out ephemeral false positives
-MIN_TRACK_AGE = 4
+MIN_TRACK_AGE = 30     # Raised to 30 (1 second) to filter out highly-fragmented short-lived tracks
+
+# Minimum bounding box height (in pixels) of the vehicle before attempting OCR
+# Prevents wasting the 10 OCR attempts when the vehicle is far away and unreadable
+MIN_VEHICLE_HEIGHT_FOR_OCR = 100
 
 # Virtual counting line as percentages: (start_x_pct, start_y_pct, end_x_pct, end_y_pct)
 # Placed horizontally at 65% height

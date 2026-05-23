@@ -27,6 +27,7 @@ class TrafficCounter:
         self.track_history: Dict[int, List[Tuple[int, int]]] = {}  # track_id -> list of bottom-center (cx, y2)
         self.track_classes: Dict[int, List[str]] = {}             # track_id -> list of detected raw classes
         self.counted_ids: Set[int] = set()                       # Set of track_ids that have crossed the line
+        self.track_assigned_class: Dict[int, str] = {}           # track_id -> assigned voted class
 
         # Initialize counts for each unique target class + total
         self.target_classes = sorted(list(set(class_mapping.values())))
@@ -40,7 +41,7 @@ class TrafficCounter:
         self.frame_height: Optional[int] = None
         self.line_coords: Optional[Tuple[Tuple[int, int], Tuple[int, int]]] = None
 
-        # Flash trigger when a vehicle crosses the line
+        # Flash trigger when a vehicle is counted
         self.last_crossing_time: float = 0.0
 
     def _resolve_line_coords(self, width: int, height: int) -> None:
@@ -80,16 +81,13 @@ class TrafficCounter:
         return self.class_mapping.get(most_common_raw, "Others")
 
     def update(self, vehicles: List[TrackedVehicle], frame_shape: Tuple[int, ...]) -> None:
-        """Update tracker history, run class voting, and check for line-crossings."""
+        """Update tracker history, run class voting, and check for counting eligibility."""
         if not vehicles:
             return
 
         height, width = frame_shape[:2]
         if self.frame_width != width or self.frame_height != height:
             self._resolve_line_coords(width, height)
-
-        assert self.line_coords is not None
-        line_start, line_end = self.line_coords
 
         active_ids = set()
         for v in vehicles:
@@ -110,40 +108,34 @@ class TrafficCounter:
                 self.track_history[track_id] = []
             self.track_history[track_id].append(bottom_center)
 
-            # Limit history length to save memory (we only need the last 2 frames for intersection)
+            # Limit history length to save memory
             if len(self.track_history[track_id]) > 5:
                 self.track_history[track_id].pop(0)
 
-            # 3. Check for crossing (if eligible and not already counted)
-            if track_id not in self.counted_ids:
-                history = self.track_history[track_id]
-                # Enforce track age filter to prevent ephemeral/spurious noise from triggering a count
-                if len(history) >= 2 and len(self.track_classes[track_id]) >= self.min_track_age:
-                    prev_pos = history[-2]
-                    curr_pos = history[-1]
-
-                    # Segment intersection check
-                    if self.check_intersection(line_start, line_end, prev_pos, curr_pos):
-                        self.counted_ids.add(track_id)
-                        
-                        # Determine majority class for this specific vehicle track
-                        voted_class = self.get_voted_class(track_id)
-                        self.counts[voted_class] = self.counts.get(voted_class, 0) + 1
-                        self.counts["total"] += 1
-                        
-                        # Set flash trigger
-                        self.last_crossing_time = time.time()
-                        print(f"[TrafficCounter] Track {track_id} crossed! Class={voted_class}. Cumulative total={self.counts['total']}")
-
-        # Cleanup very old track histories to prevent memory leak (if they haven't been active for 300 frames)
-        # We can clean up track histories of tracks not present in active_ids after a certain time,
-        # but let's keep it simple: keep history size bounded or clean up when tracks are completely lost.
-        # Ultralytics track buffers are max 90, so we can clean up any track not seen in active_ids
-        # if it hasn't appeared for 120 frames. For now, since short videos are typical, simple dictionary
-        # updates are perfectly fine.
+            # 3. Check for counting eligibility (survived min_track_age)
+            if len(self.track_classes[track_id]) >= self.min_track_age:
+                new_voted_class = self.get_voted_class(track_id)
+                if track_id not in self.counted_ids:
+                    # First time counting this vehicle
+                    self.counted_ids.add(track_id)
+                    self.track_assigned_class[track_id] = new_voted_class
+                    self.counts[new_voted_class] = self.counts.get(new_voted_class, 0) + 1
+                    self.counts["total"] += 1
+                    
+                    # Set flash trigger
+                    self.last_crossing_time = time.time()
+                    print(f"[TrafficCounter] Track {track_id} registered! Class={new_voted_class}. Cumulative total={self.counts['total']}")
+                else:
+                    # Already counted, check if the voted class has changed for active tracking correction
+                    old_voted_class = self.track_assigned_class.get(track_id)
+                    if old_voted_class != new_voted_class:
+                        self.counts[old_voted_class] = max(0, self.counts.get(old_voted_class, 0) - 1)
+                        self.counts[new_voted_class] = self.counts.get(new_voted_class, 0) + 1
+                        self.track_assigned_class[track_id] = new_voted_class
+                        print(f"[TrafficCounter] Track {track_id} class updated: {old_voted_class} -> {new_voted_class}. Cumulative total={self.counts['total']}")
 
     def was_crossing_recent(self) -> bool:
-        """Returns True if a line crossing occurred within the last 0.4 seconds."""
+        """Returns True if a crossing/registration occurred within the last 0.4 seconds."""
         return (time.time() - self.last_crossing_time) < 0.4
 
     def get_counts(self) -> Dict[str, int]:
@@ -155,6 +147,7 @@ class TrafficCounter:
         self.track_history.clear()
         self.track_classes.clear()
         self.counted_ids.clear()
+        self.track_assigned_class.clear()
         self.counts = {cls: 0 for cls in self.target_classes}
         self.counts["total"] = 0
         self.last_crossing_time = 0.0

@@ -224,9 +224,16 @@ def _run_analysis(source, source_type: str) -> None:
 
             # ── Plate OCR ───────────────────────────────────────────────────
             plates_map: Dict[int, str] = {}
+            plate_boxes_map: Dict[int, tuple] = {}
             if _ocr is not None:
                 if frame_idx % config.PLATE_DETECT_EVERY_N_FRAMES == 0:
                     for v in vehicles:
+                        # Only run OCR if the vehicle crop is large/close enough
+                        x1, y1, x2, y2 = v.bbox
+                        bbox_height = y2 - y1
+                        if bbox_height < config.MIN_VEHICLE_HEIGHT_FOR_OCR:
+                            continue
+
                         if (
                             v.vehicle_class in config.PLATE_DETECTION_CLASSES
                             and v.vehicle_class not in config.NO_PLATE_CLASSES
@@ -241,6 +248,7 @@ def _run_analysis(source, source_type: str) -> None:
                 try:
                     _ocr.drain_completed()
                     plates_map = _ocr.get_all_plates()
+                    plate_boxes_map = _ocr.get_all_plate_boxes()
                 except Exception:
                     pass
 
@@ -261,7 +269,7 @@ def _run_analysis(source, source_type: str) -> None:
             try:
                 total_plates = _ocr.total_plates_detected if _ocr else 0
                 annotated    = draw_annotations(
-                    frame, vehicles, plates_map, counts, fps, total_plates, counter=counter
+                    frame, vehicles, plates_map, counts, fps, total_plates, counter=counter, plate_boxes=plate_boxes_map
                 )
             except Exception as exc:
                 print(f"[server] Annotation error: {exc}")

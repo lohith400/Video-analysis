@@ -84,6 +84,29 @@ class TestTrafficCounter(unittest.TestCase):
         self.assertEqual(counts["Car"], 1)  # Stays at 1!
         self.assertEqual(counts["total"], 1)
 
+    def test_active_class_voting_correction(self):
+        """Verify that when a track's voted class updates, counts are corrected in real-time."""
+        # 1. Update vehicle with 'car' raw prediction to trigger initial count
+        v1 = TrackedVehicle(track_id=2, bbox=(10, 10, 30, 30), confidence=0.8, vehicle_class="car")
+        self.counter.update([v1], (100, 100))
+        v2 = TrackedVehicle(track_id=2, bbox=(12, 10, 32, 30), confidence=0.8, vehicle_class="car")
+        self.counter.update([v2], (100, 100))
+        
+        counts = self.counter.get_counts()
+        self.assertEqual(counts["Car"], 1)
+        self.assertEqual(counts["total"], 1)
+
+        # 2. Update with multiple 'bus' predictions to swing the majority vote
+        # Now track_classes contains: ['car', 'car', 'bus', 'bus', 'bus'] (majority 'bus')
+        for _ in range(3):
+            v_bus = TrackedVehicle(track_id=2, bbox=(15, 10, 35, 30), confidence=0.8, vehicle_class="bus")
+            self.counter.update([v_bus], (100, 100))
+
+        counts = self.counter.get_counts()
+        self.assertEqual(counts["Car"], 0)   # Decremented to 0!
+        self.assertEqual(counts["Bus"], 1)   # Incremented to 1!
+        self.assertEqual(counts["total"], 1)  # Total remains 1!
+
 
 if __name__ == "__main__":
     unittest.main()
