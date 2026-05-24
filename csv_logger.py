@@ -21,6 +21,12 @@ CSV_HEADER = [
     "scooters",
     "bicycles",
     "plates_detected",
+    "helmet_violations",
+    "violation_details",
+    "pedestrians_detected",
+    "males",
+    "females",
+    "children",
 ]
 
 
@@ -29,9 +35,13 @@ class CSVLogger:
         self,
         counts_getter: Callable[[], Dict[str, int]],
         plates_getter: Callable[[], Dict[int, str]],
+        violations_getter: Callable[[], List[Dict]] = None,
+        pedestrians_getter: Callable[[], Dict] = None,
     ):
         self._counts_getter = counts_getter
         self._plates_getter = plates_getter
+        self._violations_getter = violations_getter if violations_getter else (lambda: [])
+        self._pedestrians_getter = pedestrians_getter if pedestrians_getter else (lambda: {"total": 0, "males": 0, "females": 0, "children": 0})
         self._running = False
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
@@ -72,6 +82,19 @@ class CSVLogger:
         plates = self._plates_getter()
         plates_str = self._format_plates(plates)
         
+        violations = self._violations_getter()
+        pedestrians = self._pedestrians_getter()
+
+        helmet_violations = len(violations)
+        violation_details = "none"
+        if violations:
+            violation_details = "|".join([f"{v['track_id']}:{v['plate']}:{v['violation_type']}" for v in violations])
+
+        pedestrians_detected = pedestrians.get("total", 0)
+        males = pedestrians.get("males", 0)
+        females = pedestrians.get("females", 0)
+        children = pedestrians.get("children", 0)
+
         # Handle new TrafficCounter counts (capitalized mapped keys)
         if "Car" in counts or "Bike/Motorcycle" in counts:
             row = [
@@ -85,6 +108,12 @@ class CSVLogger:
                 0,                                 # Set scooters to 0 since they are merged
                 counts.get("Bicycle", 0),
                 plates_str,
+                helmet_violations,
+                violation_details,
+                pedestrians_detected,
+                males,
+                females,
+                children,
             ]
         else:
             # Fallback to legacy raw counts
@@ -99,6 +128,12 @@ class CSVLogger:
                 counts.get("scooter", 0),
                 counts.get("bicycle", 0),
                 plates_str,
+                helmet_violations,
+                violation_details,
+                pedestrians_detected,
+                males,
+                females,
+                children,
             ]
             
         with self._lock:

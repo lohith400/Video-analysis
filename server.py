@@ -23,6 +23,10 @@ from typing import Dict, List, Optional
 
 import cv2
 import numpy as np
+from datetime import datetime
+
+def current_timestamp() -> str:
+    return datetime.now().isoformat()
 
 try:
     from fastapi import FastAPI, File, UploadFile, WebSocket, WebSocketDisconnect
@@ -33,8 +37,10 @@ except ImportError:
 
 import config
 from annotator import count_by_category, draw_annotations
-from detector import VehicleModelLoader, crop_vehicle, get_device
+from detector import VehicleModelLoader, crop_vehicle, get_device, crop_vehicle as crop_person
 from tracker import VehicleTracker
+from helmet_checker import HelmetChecker
+from pedestrian_detector import PedestrianDetector, RawBox
 
 # ── FastAPI ────────────────────────────────────────────────────────────────
 app = FastAPI(title="Indian Road Intelligence System")
@@ -57,6 +63,7 @@ _latest_counts:     Dict           = {cls: 0 for cls in _target_classes}
 _latest_counts["total"] = 0
 _latest_plates:     Dict[int, str] = {}
 _latest_violations: List[Dict]     = []
+_latest_pedestrians: Dict          = {"total": 0, "males": 0, "females": 0, "children": 0, "details": []}
 _latest_fps:        float          = 0.0
 _source_type:       str            = "VIDEO"
 _is_running:        bool           = False
@@ -73,6 +80,8 @@ _device  = get_device()
 _loader:  Optional[VehicleModelLoader] = None
 _tracker: Optional[VehicleTracker]     = None
 _ocr                                   = None
+_helmet_checker: Optional[HelmetChecker] = None
+_pedestrian_detector: Optional[PedestrianDetector] = None
 _pipeline_lock = threading.Lock()
 
 _analysis_thread: Optional[threading.Thread] = None
@@ -82,7 +91,7 @@ _stop_event = threading.Event()
 # ── Helpers ────────────────────────────────────────────────────────────────
 
 def _load_pipeline() -> None:
-    global _loader, _tracker, _ocr
+    global _loader, _tracker, _ocr, _helmet_checker, _pedestrian_detector
     with _pipeline_lock:
         if _loader is not None:
             return
@@ -100,6 +109,21 @@ def _load_pipeline() -> None:
         except Exception as exc:
             print(f"[server] WARNING: OCR init failed ({exc}) — plate detection disabled.")
             _ocr = None
+
+        # Initialize both at server startup alongside existing pipeline:
+        try:
+            _helmet_checker = HelmetChecker(device=_device)
+            print("[server] Helmet checker ready ✓")
+        except Exception as exc:
+            print(f"[server] WARNING: HelmetChecker init failed ({exc}) — helmet detection disabled.")
+            _helmet_checker = None
+
+        try:
+            _pedestrian_detector = PedestrianDetector(device=_device)
+            print("[server] Pedestrian detector ready ✓")
+        except Exception as exc:
+            print(f"[server] WARNING: PedestrianDetector init failed ({exc}) — pedestrian detection disabled.")
+            _pedestrian_detector = None
 
 
 def _frame_to_b64(frame: np.ndarray) -> str:
@@ -139,10 +163,12 @@ def _stop_current(timeout: float = 3.0) -> None:
 
 def _reset_summary() -> None:
     """Clear previous video summary before starting a new source."""
-    global _video_done, _video_summary
+    global _video_done, _video_summary, _latest_violations, _latest_pedestrians
     with _state_lock:
         _video_done    = False
         _video_summary = None
+        _latest_violations = []
+        _latest_pedestrians = {"total": 0, "males": 0, "females": 0, "children": 0, "details": []}
 
 
 # ── Analysis thread ────────────────────────────────────────────────────────
@@ -180,6 +206,8 @@ def _run_analysis(source, source_type: str) -> None:
         csv_logger = CSVLogger(
             counts_getter=lambda: dict(_latest_counts),
             plates_getter=lambda: (dict(_latest_plates) if _ocr else {}),
+            violations_getter=lambda: list(_latest_violations),
+            pedestrians_getter=lambda: dict(_latest_pedestrians),
         )
         csv_logger.start()
     except Exception as exc:
@@ -252,6 +280,68 @@ def _run_analysis(source, source_type: str) -> None:
                 except Exception:
                     pass
 
+            # ── Helmet Checker (Module 1) ───────────────────────────────────
+            all_violations = []
+            if _helmet_checker is not None:
+                try:
+                    for v in vehicles:
+                        if v.vehicle_class in config.TWO_WHEELER_CLASSES:
+                            if _helmet_checker.should_check(v.track_id, frame_idx):
+                                plate = "UNKNOWN"
+                                if _ocr is not None:
+                                    plate = _ocr.get_plate(v.track_id) or "UNKNOWN"
+                                crop = crop_vehicle(frame, v.bbox)
+                                _helmet_checker.submit(v.track_id, crop, v.vehicle_class, plate, current_timestamp(), v.bbox)
+                    
+                    _helmet_checker.drain_completed()
+                    all_violations = _helmet_checker.get_active_violations()
+                except Exception as exc:
+                    print(f"[server] Helmet checker error: {exc}")
+
+            # ── Pedestrian & Gender/Child Detector (Module 2) ───────────────
+            pedestrians = []
+            pedestrian_summary = {"total": 0, "males": 0, "females": 0, "children": 0}
+            pedestrian_details = []
+            
+            if _pedestrian_detector is not None:
+                try:
+                    raw_results = []
+                    if _tracker.last_boxes is not None:
+                        boxes = _tracker.last_boxes
+                        if boxes.id is not None:
+                            xyxy = boxes.xyxy.cpu().numpy()
+                            cls_ids = boxes.cls.cpu().numpy().astype(int)
+                            track_ids = boxes.id.cpu().numpy().astype(int)
+                            for i in range(len(xyxy)):
+                                raw_results.append(RawBox(
+                                    cls=cls_ids[i],
+                                    track_id=track_ids[i],
+                                    bbox=(int(xyxy[i][0]), int(xyxy[i][1]), int(xyxy[i][2]), int(xyxy[i][3]))
+                                ))
+                                
+                    person_boxes = [b for b in raw_results if b.cls == 0]
+                    vehicle_boxes = [v.bbox for v in vehicles]
+                    pedestrians = _pedestrian_detector.filter_pedestrians(person_boxes, vehicle_boxes)
+                    
+                    for p in pedestrians:
+                        if _pedestrian_detector.should_check(p.track_id, frame_idx):
+                            crop = crop_person(frame, p.bbox)
+                            _pedestrian_detector.submit(p.track_id, crop, current_timestamp())
+                            
+                    _pedestrian_detector.drain_completed()
+                    pedestrian_summary, pedestrian_details = _pedestrian_detector.get_current_pedestrians()
+                except Exception as exc:
+                    print(f"[server] Pedestrian detector error: {exc}")
+
+            # ── Stale Teardown Cleanup ──────────────────────────────────────
+            if frame_idx % 30 == 0:
+                if _helmet_checker is not None:
+                    active_ids = {v.track_id for v in vehicles}
+                    _helmet_checker.cleanup_stale(active_ids)
+                if _pedestrian_detector is not None:
+                    active_person_ids = {p.track_id for p in pedestrians}
+                    _pedestrian_detector.cleanup_stale(active_person_ids)
+
             # ── FPS ─────────────────────────────────────────────────────────
             t_now = time.perf_counter()
             dt    = t_now - t_prev
@@ -263,13 +353,36 @@ def _run_analysis(source, source_type: str) -> None:
             with _state_lock:
                 _latest_counts = counts
                 _latest_plates = plates_map
+                _latest_violations = all_violations
+                _latest_pedestrians = {
+                    "total": pedestrian_summary.get("total", 0),
+                    "males": pedestrian_summary.get("males", 0),
+                    "females": pedestrian_summary.get("females", 0),
+                    "children": pedestrian_summary.get("children", 0),
+                    "details": pedestrian_details
+                }
                 _latest_fps    = fps
 
             # ── Annotate + push frame ───────────────────────────────────────
             try:
                 total_plates = _ocr.total_plates_detected if _ocr else 0
                 annotated    = draw_annotations(
-                    frame, vehicles, plates_map, counts, fps, total_plates, counter=counter, plate_boxes=plate_boxes_map
+                    frame,
+                    vehicles,
+                    plates_map,
+                    counts,
+                    fps,
+                    total_plates,
+                    counter=counter,
+                    plate_boxes=plate_boxes_map,
+                    violations=all_violations,
+                    pedestrians={
+                        "total": pedestrian_summary.get("total", 0),
+                        "males": pedestrian_summary.get("males", 0),
+                        "females": pedestrian_summary.get("females", 0),
+                        "children": pedestrian_summary.get("children", 0),
+                        "details": pedestrian_details
+                    }
                 )
             except Exception as exc:
                 print(f"[server] Annotation error: {exc}")
@@ -289,6 +402,18 @@ def _run_analysis(source, source_type: str) -> None:
             except Exception:
                 pass
 
+        if _helmet_checker is not None:
+            try:
+                _helmet_checker.shutdown()
+            except Exception:
+                pass
+
+        if _pedestrian_detector is not None:
+            try:
+                _pedestrian_detector.shutdown()
+            except Exception:
+                pass
+
         # ── Build overall-video summary when a FILE finishes naturally ──────
         # (not for live/RTSP, and not when manually stopped)
         if not is_live_source and not _stop_event.is_set():
@@ -305,9 +430,31 @@ def _run_analysis(source, source_type: str) -> None:
                 except Exception:
                     pass
 
+            final_violations = []
+            if _helmet_checker is not None:
+                final_violations = _helmet_checker.all_violations
+
+            final_pedestrians = {"total": 0, "males": 0, "females": 0, "children": 0}
+            if _pedestrian_detector is not None:
+                try:
+                    ped_sum, _ = _pedestrian_detector.get_current_pedestrians()
+                    final_pedestrians = {
+                        "total": ped_sum.get("total", 0),
+                        "males": ped_sum.get("males", 0),
+                        "females": ped_sum.get("females", 0),
+                        "children": ped_sum.get("children", 0)
+                    }
+                except Exception:
+                    pass
+
             with _state_lock:
                 _video_done    = True
-                _video_summary = {"counts": final_counts, "plates": final_plates}
+                _video_summary = {
+                    "counts": final_counts,
+                    "plates": final_plates,
+                    "violations": final_violations,
+                    "pedestrians": final_pedestrians
+                }
 
             print(
                 f"[server] ✓ Video complete — "
@@ -443,6 +590,7 @@ async def video_feed(websocket: WebSocket):
                     for p in _latest_plates.values()
                 ]
                 violations = list(_latest_violations)
+                pedestrians = dict(_latest_pedestrians)
                 fps        = round(_latest_fps, 1)
                 src        = _source_type
                 running    = _is_running
@@ -457,6 +605,7 @@ async def video_feed(websocket: WebSocket):
                 "counts":     counts,       # per-frame (live progress while processing)
                 "plates":     plates,       # all plates seen so far
                 "violations": violations,
+                "pedestrians": pedestrians,
                 "source":     src,
                 "running":    running,
                 "mode":       "live" if is_live_src else "video",

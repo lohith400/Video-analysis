@@ -117,6 +117,9 @@ class VehicleModelLoader:
                 ids.append(cid)
             elif cid in config.COCO_VEHICLE_ID_MAP:
                 ids.append(cid)
+        # Include person (class 0) for pedestrian tracking
+        if 0 not in ids:
+            ids.append(0)
         return sorted(set(ids))
 
     @property

@@ -32,7 +32,7 @@ const MAX_RECONNECTS     = 10;
 
 // ── Overall Video Summary Panel (Daylight Glass Edition) ───────────────────
 function VideoSummaryPanel({ summary }) {
-  const { counts, plates } = summary;
+  const { counts, plates, violations, pedestrians } = summary;
   const total = counts?.total ?? 0;
   
   // Custom filter to display positive detections
@@ -114,12 +114,77 @@ function VideoSummaryPanel({ summary }) {
           <p className="text-xs font-medium text-sky-dark/40 text-center py-4">No plates detected</p>
         )}
       </div>
+
+      {/* Violations Summary */}
+      <div className="border-t border-sky-border/30 pt-4 mt-4">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-heading font-extrabold text-sky-dark uppercase tracking-wide">
+            Helmet Violations Mapped
+          </span>
+          <span className={`px-2 py-0.5 rounded-full font-mono text-xs font-bold text-white ${violations && violations.length > 0 ? "bg-red-500 animate-pulse" : "bg-sky-border/40 text-sky-dark/40"}`}>
+            {violations?.length ?? 0}
+          </span>
+        </div>
+        {violations && violations.length > 0 ? (
+          <div className="grid grid-cols-2 gap-2 max-h-[120px] overflow-y-auto pr-1">
+            {violations.map((v, i) => (
+              <div
+                key={i}
+                className="px-2 py-1.5 rounded-lg bg-red-50/20 border border-red-100/50 shadow-sm flex items-center justify-between"
+              >
+                <span className="font-mono text-[9px] font-bold text-sky-dark uppercase">
+                  ID: {v.track_id} | {v.plate || "UNKNOWN"}
+                </span>
+                <span className="text-[8px] font-heading font-extrabold text-red-500 uppercase">
+                  {v.violation_type?.replace("no_helmet", "No Helmet").replace("_", " ")}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-[10px] font-heading font-extrabold text-emerald-600 text-center py-2 uppercase bg-emerald-50/10 rounded-lg">
+            No helmet violations detected
+          </p>
+        )}
+      </div>
+
+      {/* Pedestrians Summary */}
+      <div className="border-t border-sky-border/30 pt-4 mt-4">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-heading font-extrabold text-sky-dark uppercase tracking-wide">
+            Pedestrians Logged
+          </span>
+          <span className="px-2 py-0.5 rounded-full font-mono text-xs font-bold bg-sky-default text-white">
+            {pedestrians?.total ?? 0}
+          </span>
+        </div>
+        {pedestrians && pedestrians.total > 0 ? (
+          <div className="grid grid-cols-3 gap-2">
+            <div className="p-2 rounded-lg bg-blue-50/20 text-center">
+              <div className="text-[8px] font-heading font-bold text-sky-dark/40 uppercase">Males</div>
+              <div className="font-mono text-xs font-bold text-blue-600">{pedestrians.males ?? 0}</div>
+            </div>
+            <div className="p-2 rounded-lg bg-purple-50/20 text-center">
+              <div className="text-[8px] font-heading font-bold text-sky-dark/40 uppercase">Females</div>
+              <div className="font-mono text-xs font-bold text-purple-600">{pedestrians.females ?? 0}</div>
+            </div>
+            <div className={`p-2 rounded-lg text-center ${pedestrians.children > 0 ? "bg-amber-50" : "bg-yellow-50/20"}`}>
+              <div className="text-[8px] font-heading font-bold text-sky-dark/40 uppercase">Children</div>
+              <div className="font-mono text-xs font-bold text-amber-600">{pedestrians.children ?? 0}</div>
+            </div>
+          </div>
+        ) : (
+          <p className="text-[10px] font-heading font-extrabold text-sky-dark/40 text-center py-2 uppercase">
+            No pedestrians detected
+          </p>
+        )}
+      </div>
     </motion.div>
   );
 }
 
 // ── Live Panel (Command Center daylight widget) ───────────────────────────
-function LivePanel({ counts, plates, violations, isVideoProcessing }) {
+function LivePanel({ counts, plates, violations, pedestrians, isVideoProcessing }) {
   return (
     <div className="flex flex-col gap-4">
       {/* Active state badge */}
@@ -143,11 +208,88 @@ function LivePanel({ counts, plates, violations, isVideoProcessing }) {
         <PlateTable plates={plates} />
       </div>
 
-      {violations && violations.length > 0 && (
-        <div className="glass-card rounded-2xl p-4 border border-amber-200/60 bg-amber-50/10 shadow-sm">
-          <ViolationList violations={violations} />
+      {/* Helmet Violations Section */}
+      <div className="glass-card rounded-2xl p-4 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-heading font-extrabold text-xs text-sky-dark uppercase tracking-wider flex items-center gap-1.5">
+            🏍️ Helmet Violations
+          </h3>
+          <span className={`px-2 py-0.5 rounded-full font-mono text-xs font-bold text-white ${violations && violations.length > 0 ? "bg-red-500 animate-pulse" : "bg-sky-border/40 text-sky-dark/40"}`}>
+            {violations?.length ?? 0}
+          </span>
         </div>
-      )}
+        
+        {violations && violations.length > 0 ? (
+          <div className="flex flex-col gap-2 max-h-[220px] overflow-y-auto pr-1">
+            {violations.map((v, i) => {
+              const formattedTime = v.timestamp ? new Date(v.timestamp).toLocaleTimeString() : "";
+              return (
+                <div 
+                  key={i} 
+                  className="flex items-center justify-between p-2.5 bg-red-50/30 border-l-4 border-red-500 rounded-lg shadow-sm"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🏍️</span>
+                    <div>
+                      <div className="text-[10px] font-mono font-bold text-sky-dark">
+                        ID: {v.track_id} | <span className="font-sans uppercase tracking-wider text-red-600 font-extrabold">{v.plate || "UNKNOWN"}</span>
+                      </div>
+                      <div className="text-[9px] font-heading font-extrabold text-red-500/80 uppercase">
+                        {v.violation_type?.replace("no_helmet", "No Helmet").replace("_", " ")}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-[9px] font-mono text-sky-dark/50">{formattedTime}</span>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex items-center justify-center gap-2 py-4 bg-emerald-50/20 border border-emerald-100/50 rounded-xl">
+            <span className="text-emerald-500 text-sm">✓</span>
+            <span className="text-[10px] font-heading font-extrabold text-emerald-600 uppercase tracking-wider">
+              No violations detected
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Pedestrians Section */}
+      <div className="glass-card rounded-2xl p-4 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-heading font-extrabold text-xs text-sky-dark uppercase tracking-wider flex items-center gap-1.5">
+            🚶 Pedestrians
+          </h3>
+          <span className="px-2 py-0.5 rounded-full font-mono text-xs font-bold bg-sky-default text-white">
+            {pedestrians?.total ?? 0}
+          </span>
+        </div>
+        
+        <div className="grid grid-cols-3 gap-2.5">
+          {/* Males */}
+          <div className="flex flex-col items-center p-2.5 bg-blue-50/20 border border-blue-100/30 rounded-xl shadow-sm text-center">
+            <span className="text-lg">👨</span>
+            <span className="text-[9px] font-heading font-bold text-sky-dark/50 uppercase mb-1">Males</span>
+            <span className="font-mono text-lg font-extrabold text-blue-600">{pedestrians?.males ?? 0}</span>
+          </div>
+          {/* Females */}
+          <div className="flex flex-col items-center p-2.5 bg-purple-50/20 border border-purple-100/30 rounded-xl shadow-sm text-center">
+            <span className="text-lg">👩</span>
+            <span className="text-[9px] font-heading font-bold text-sky-dark/50 uppercase mb-1">Females</span>
+            <span className="font-mono text-lg font-extrabold text-purple-600">{pedestrians?.females ?? 0}</span>
+          </div>
+          {/* Children */}
+          <div className={`flex flex-col items-center p-2.5 border rounded-xl shadow-sm text-center transition-all duration-300 ${
+            pedestrians?.children > 0 
+              ? "bg-amber-100/50 border-amber-300 animate-pulse animate-duration-1000" 
+              : "bg-yellow-50/20 border-yellow-100/30"
+          }`}>
+            <span className="text-lg">🧒</span>
+            <span className="text-[9px] font-heading font-bold text-sky-dark/50 uppercase mb-1">Children</span>
+            <span className="font-mono text-lg font-extrabold text-amber-600">{pedestrians?.children ?? 0}</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -201,6 +343,7 @@ export default function LiveAnalysis() {
   const [counts,          setCounts]          = useState({});
   const [plates,          setPlates]          = useState([]);
   const [violations,      setViolations]      = useState([]);
+  const [pedestrians,     setPedestrians]     = useState({ total: 0, males: 0, females: 0, children: 0 });
 
   const [videoSummary,    setVideoSummary]    = useState(null);
   const [videoProcessing, setVideoProcessing] = useState(false);
@@ -294,9 +437,17 @@ export default function LiveAnalysis() {
           }
 
           if (Array.isArray(data.violations)) {
-            setViolations(data.violations);
+            setViolations((prev) => {
+              const seen = new Set(prev.map(v => `${v.track_id}_${v.violation_type}`));
+              const fresh = data.violations.filter(v => !seen.has(`${v.track_id}_${v.violation_type}`));
+              return fresh.length ? [...prev, ...fresh] : prev;
+            });
             if (data.violations.length > 0)
               setAlert(data.violations[data.violations.length - 1]);
+          }
+
+          if (data.pedestrians) {
+            setPedestrians(data.pedestrians);
           }
 
         } else {
@@ -333,6 +484,13 @@ export default function LiveAnalysis() {
                   .filter((p) => !seen.has(p.plate));
                 return fresh.length ? [...fresh, ...prev].slice(0, 200) : prev;
               });
+            }
+
+            if (Array.isArray(data.violations)) {
+              setViolations(data.violations);
+            }
+            if (data.pedestrians) {
+              setPedestrians(data.pedestrians);
             }
           }
         }
@@ -584,6 +742,7 @@ export default function LiveAnalysis() {
                 counts={counts}
                 plates={plates}
                 violations={violations}
+                pedestrians={pedestrians}
                 isVideoProcessing={videoProcessing}
               />
             )}

@@ -20,6 +20,8 @@ def draw_annotations(
     total_plates: int,
     counter: Optional["TrafficCounter"] = None,
     plate_boxes: Optional[Dict[int, tuple]] = None,
+    violations: Optional[List[Dict]] = None,
+    pedestrians: Optional[Dict] = None,
 ) -> np.ndarray:
     out = frame.copy()
     
@@ -52,9 +54,51 @@ def draw_annotations(
             abs_py2 = y1 + py2
             cv2.rectangle(out, (abs_px1, abs_py1), (abs_px2, abs_py2), (0, 255, 0), 2)
 
+    # 4. Draw helmet violations
+    if violations:
+        for viol in violations:
+            if "person_bbox" in viol:
+                px1, py1, px2, py2 = viol["person_bbox"]
+                # Draw a second bright red box around the person who has no helmet
+                cv2.rectangle(out, (px1, py1), (px2, py2), (0, 0, 255), 2)
+                
+                # Add text label NO HELMET in red above that person box
+                _draw_label(out, "NO HELMET", px1, py1, (0, 0, 255))
+                
+                # Add plate and violation type text below that box
+                plate_text = viol.get("plate", "UNKNOWN")
+                v_type = viol.get("violation_type", "")
+                v_label = v_type.replace("_", " ").title()
+                below_text = f"{plate_text} - {v_label}"
+                _draw_label_below(out, below_text, px1, py2, (0, 0, 255))
+
+    # 5. Draw pedestrians
+    if pedestrians and "details" in pedestrians:
+        for p in pedestrians["details"]:
+            if "bbox" in p:
+                px1, py1, px2, py2 = p["bbox"]
+                gender = p.get("gender", "unknown")
+                
+                if gender == "male_adult":
+                    color = (255, 0, 0)       # Blue (BGR: 255, 0, 0)
+                    label = "Male"
+                elif gender == "female_adult":
+                    color = (128, 0, 128)     # Purple (BGR: 128, 0, 128)
+                    label = "Female"
+                elif gender == "child":
+                    color = (0, 255, 255)     # Yellow (BGR: 0, 255, 255)
+                    label = "Child"
+                else:
+                    color = (255, 255, 255)   # White
+                    label = "Person"
+                    
+                cv2.rectangle(out, (px1, py1), (px2, py2), color, 2)
+                _draw_label(out, label, px1, py1, color)
+
     # 3. Draw heads-up display (HUD)
     _draw_hud(out, category_counts, fps, total_plates, counter)
     return out
+
 
 
 def _draw_label(

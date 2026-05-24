@@ -80,3 +80,24 @@ TARGET_MIN_FPS = 15
 OCR_MAX_WORKERS = 4
 RTSP_RECONNECT_WAIT_SEC = 5
 WINDOW_NAME = "Traffic Analysis"
+
+# --- HELMET DETECTION CONFIGS ---
+HELMET_MODEL = "models/helmet_detector.pt"
+HELMET_CONF_THRESHOLD = 0.45
+TWO_WHEELER_CLASSES = ["motorcycle", "scooter"]
+HELMET_CHECK_EVERY_N = 5
+HELMET_CLASS_MAP = {
+    "with_helmet": "helmet",
+    "without_helmet": "no_helmet",
+    "helmet": "helmet",
+    "no_helmet": "no_helmet",
+    "head": "no_helmet"
+}
+
+# --- PEDESTRIAN GENDER & CHILD DETECTION CONFIGS ---
+GENDER_MODEL = "models/gender_detector.pt"
+GENDER_CONF_THRESHOLD = 0.40
+PEDESTRIAN_VEHICLE_IOU = 0.3
+CHILD_HEIGHT_RATIO = 0.60
+GENDER_CHECK_EVERY_N = 5
+

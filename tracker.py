@@ -45,9 +45,11 @@ class VehicleTracker:
 
         results = self.model.track(frame, **kwargs)
         if not results or results[0].boxes is None:
+            self.last_boxes = None
             return []
 
         boxes = results[0].boxes
+        self.last_boxes = boxes
         if boxes.id is None:
             return []
 
