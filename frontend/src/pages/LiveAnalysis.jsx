@@ -21,6 +21,7 @@ import {
 import VideoFeed from "../components/VideoFeed";
 import VehicleCounts from "../components/VehicleCounts";
 import PlateTable from "../components/PlateTable";
+import TwoWheelerSafetyTable from "../components/TwoWheelerSafetyTable";
 import ViolationList from "../components/ViolationList";
 import AlertBanner from "../components/AlertBanner";
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis } from "recharts";
@@ -32,7 +33,7 @@ const MAX_RECONNECTS     = 10;
 
 // ── Overall Video Summary Panel (Daylight Glass Edition) ───────────────────
 function VideoSummaryPanel({ summary }) {
-  const { counts, plates, violations, pedestrians } = summary;
+  const { counts, plates, violations, pedestrians, two_wheeler_statuses } = summary;
   const total = counts?.total ?? 0;
   
   // Custom filter to display positive detections
@@ -115,6 +116,11 @@ function VideoSummaryPanel({ summary }) {
         )}
       </div>
 
+      {/* Two-Wheeler Safety Log */}
+      <div className="border-t border-sky-border/30 pt-4 mt-4">
+        <TwoWheelerSafetyTable statuses={two_wheeler_statuses || []} />
+      </div>
+
       {/* Violations Summary */}
       <div className="border-t border-sky-border/30 pt-4 mt-4">
         <div className="flex items-center justify-between mb-2">
@@ -184,7 +190,7 @@ function VideoSummaryPanel({ summary }) {
 }
 
 // ── Live Panel (Command Center daylight widget) ───────────────────────────
-function LivePanel({ counts, plates, violations, pedestrians, isVideoProcessing }) {
+function LivePanel({ counts, plates, twoWheelerStatuses, violations, pedestrians, isVideoProcessing }) {
   return (
     <div className="flex flex-col gap-4">
       {/* Active state badge */}
@@ -206,6 +212,10 @@ function LivePanel({ counts, plates, violations, pedestrians, isVideoProcessing 
 
       <div className="glass-card rounded-2xl p-4 shadow-sm">
         <PlateTable plates={plates} />
+      </div>
+
+      <div className="glass-card rounded-2xl p-4 shadow-sm">
+        <TwoWheelerSafetyTable statuses={twoWheelerStatuses} />
       </div>
 
       {/* Helmet Violations Section */}
@@ -340,10 +350,11 @@ export default function LiveAnalysis() {
   const [wsStatus,        setWsStatus]        = useState("idle");
   const [mode,            setMode]            = useState("video");
 
-  const [counts,          setCounts]          = useState({});
-  const [plates,          setPlates]          = useState([]);
-  const [violations,      setViolations]      = useState([]);
-  const [pedestrians,     setPedestrians]     = useState({ total: 0, males: 0, females: 0, children: 0 });
+  const [counts,             setCounts]             = useState({});
+  const [plates,             setPlates]             = useState([]);
+  const [violations,         setViolations]         = useState([]);
+  const [twoWheelerStatuses, setTwoWheelerStatuses] = useState([]);
+  const [pedestrians,        setPedestrians]        = useState({ total: 0, males: 0, females: 0, children: 0 });
 
   const [videoSummary,    setVideoSummary]    = useState(null);
   const [videoProcessing, setVideoProcessing] = useState(false);
@@ -450,6 +461,19 @@ export default function LiveAnalysis() {
             setPedestrians(data.pedestrians);
           }
 
+          if (Array.isArray(data.two_wheeler_statuses)) {
+            setTwoWheelerStatuses((prev) => {
+              const updated = prev.map(s => {
+                const latest = data.two_wheeler_statuses.find(u => u.track_id === s.track_id);
+                return latest ? latest : s;
+              });
+              const fresh = data.two_wheeler_statuses.filter(
+                (s) => !prev.some((p) => p.track_id === s.track_id)
+              );
+              return [...updated, ...fresh];
+            });
+          }
+
         } else {
           // VIDEO processing mode
           if (data.video_done && data.video_summary) {
@@ -465,6 +489,9 @@ export default function LiveAnalysis() {
             }
             if (data.video_summary.counts) {
               setCounts(mappedSummary.counts);
+            }
+            if (Array.isArray(data.video_summary.two_wheeler_statuses)) {
+              setTwoWheelerStatuses(data.video_summary.two_wheeler_statuses);
             }
           } else {
             setVideoProcessing(true);
@@ -491,6 +518,9 @@ export default function LiveAnalysis() {
             }
             if (data.pedestrians) {
               setPedestrians(data.pedestrians);
+            }
+            if (Array.isArray(data.two_wheeler_statuses)) {
+              setTwoWheelerStatuses(data.two_wheeler_statuses);
             }
           }
         }
@@ -535,6 +565,7 @@ export default function LiveAnalysis() {
     setCounts({}); 
     setPlates([]);
     setViolations([]); 
+    setTwoWheelerStatuses([]);
     setFps(null); 
     setWsStatus("idle");
     setVideoSummary(null); 
@@ -741,6 +772,7 @@ export default function LiveAnalysis() {
               <LivePanel
                 counts={counts}
                 plates={plates}
+                twoWheelerStatuses={twoWheelerStatuses}
                 violations={violations}
                 pedestrians={pedestrians}
                 isVideoProcessing={videoProcessing}

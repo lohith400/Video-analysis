@@ -34,15 +34,15 @@ class HelmetChecker:
         # State tracking
         self.active_violations: Dict[int, List[Dict]] = {}  # track_id -> list of violations
         self.all_violations: List[Dict] = []               # All violations detected in this session
+        self.two_wheeler_status: Dict[int, Dict] = {}       # track_id -> complete safety status details
         self.attempts: Dict[int, int] = {}                  # track_id -> attempts count
-        self.pending_futures: Dict[int, Future[Optional[List[Dict]]]] = {} # track_id -> Future
+        self.pending_futures: Dict[int, Future[Optional[Tuple[List[Dict], Dict]]]] = {} # track_id -> Future
 
     def should_check(self, track_id: int, frame_idx: int) -> bool:
         if self.model is None:
             return False
         with self._lock:
-            if track_id in self.active_violations:
-                return False
+            # We check even if already in status to allow dynamic updates
             if track_id in self.pending_futures:
                 return False
             if frame_idx % config.HELMET_CHECK_EVERY_N != 0:
@@ -84,7 +84,7 @@ class HelmetChecker:
         plate: str,
         timestamp: str,
         vehicle_bbox: Optional[Tuple[int, int, int, int]]
-    ) -> Optional[List[Dict]]:
+    ) -> Optional[Tuple[List[Dict], Dict]]:
         try:
             if self.model is None:
                 return None
@@ -96,8 +96,19 @@ class HelmetChecker:
                 device=self.device,
                 verbose=False
             )
+            
+            # Base status record if no boxes are detected
+            status_record = {
+                "track_id": track_id,
+                "plate": plate,
+                "vehicle_class": vehicle_class,
+                "rider_helmet": "unknown",
+                "pillion_helmet": "none",
+                "timestamp": timestamp
+            }
+            
             if not results or results[0].boxes is None or len(results[0].boxes) == 0:
-                return None
+                return [], status_record
 
             boxes = results[0].boxes
             xyxy = boxes.xyxy.cpu().numpy()
@@ -121,11 +132,15 @@ class HelmetChecker:
 
             violations = []
             vx1, vy1, vx2, vy2 = vehicle_bbox if vehicle_bbox else (0, 0, 0, 0)
+            
+            rider_helmet = "unknown"
+            pillion_helmet = "none"
 
             # Rider (leftmost / first person)
             if len(detected_persons) >= 1:
                 rider = detected_persons[0]
                 mapped = config.HELMET_CLASS_MAP.get(rider["class_name"], "helmet")
+                rider_helmet = mapped
                 if mapped == "no_helmet":
                     rx1, ry1, rx2, ry2 = rider["bbox"]
                     violations.append({
@@ -142,6 +157,7 @@ class HelmetChecker:
             if len(detected_persons) >= 2:
                 pillion = detected_persons[1]
                 mapped = config.HELMET_CLASS_MAP.get(pillion["class_name"], "helmet")
+                pillion_helmet = mapped
                 if mapped == "no_helmet":
                     px1, py1, px2, py2 = pillion["bbox"]
                     violations.append({
@@ -154,7 +170,16 @@ class HelmetChecker:
                         "person_bbox": (vx1 + px1, vy1 + py1, vx1 + px2, vy1 + py2)
                     })
 
-            return violations
+            status_record = {
+                "track_id": track_id,
+                "plate": plate,
+                "vehicle_class": vehicle_class,
+                "rider_helmet": rider_helmet,
+                "pillion_helmet": pillion_helmet,
+                "timestamp": timestamp
+            }
+
+            return violations, status_record
 
         except Exception as exc:
             print(f"[HelmetChecker] Error checking track {track_id}: {exc}")
@@ -167,13 +192,20 @@ class HelmetChecker:
             for track_id, future in list(self.pending_futures.items()):
                 if future.done():
                     try:
-                        viols = future.result()
-                        if viols:
+                        res = future.result()
+                        if res is not None:
+                            viols, status = res
                             # Save to active violations and all session logs
-                            self.active_violations[track_id] = viols
-                            for v in viols:
-                                self.all_violations.append(v)
-                                new_violations.append(v)
+                            if viols:
+                                self.active_violations[track_id] = viols
+                                for v in viols:
+                                    self.all_violations.append(v)
+                                    new_violations.append(v)
+                            else:
+                                self.active_violations.pop(track_id, None)
+                                
+                            # Update safety status log
+                            self.two_wheeler_status[track_id] = status
                     except Exception as exc:
                         print(f"[HelmetChecker] Future error for track {track_id}: {exc}")
                     completed_ids.append(track_id)
@@ -190,11 +222,18 @@ class HelmetChecker:
                 flat_viols.extend(viols)
             return flat_viols
 
+    def get_two_wheeler_statuses(self) -> List[Dict]:
+        with self._lock:
+            return list(self.two_wheeler_status.values())
+
     def cleanup_stale(self, active_track_ids: Set[int]) -> None:
         with self._lock:
             for tid in list(self.active_violations.keys()):
                 if tid not in active_track_ids:
                     self.active_violations.pop(tid, None)
+            for tid in list(self.two_wheeler_status.keys()):
+                if tid not in active_track_ids:
+                    self.two_wheeler_status.pop(tid, None)
             for tid in list(self.attempts.keys()):
                 if tid not in active_track_ids:
                     self.attempts.pop(tid, None)

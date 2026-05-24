@@ -63,6 +63,7 @@ _latest_counts:     Dict           = {cls: 0 for cls in _target_classes}
 _latest_counts["total"] = 0
 _latest_plates:     Dict[int, str] = {}
 _latest_violations: List[Dict]     = []
+_latest_two_wheeler_statuses: List[Dict] = []
 _latest_pedestrians: Dict          = {"total": 0, "males": 0, "females": 0, "children": 0, "details": []}
 _latest_fps:        float          = 0.0
 _source_type:       str            = "VIDEO"
@@ -163,11 +164,12 @@ def _stop_current(timeout: float = 3.0) -> None:
 
 def _reset_summary() -> None:
     """Clear previous video summary before starting a new source."""
-    global _video_done, _video_summary, _latest_violations, _latest_pedestrians
+    global _video_done, _video_summary, _latest_violations, _latest_pedestrians, _latest_two_wheeler_statuses
     with _state_lock:
         _video_done    = False
         _video_summary = None
         _latest_violations = []
+        _latest_two_wheeler_statuses = []
         _latest_pedestrians = {"total": 0, "males": 0, "females": 0, "children": 0, "details": []}
 
 
@@ -282,6 +284,7 @@ def _run_analysis(source, source_type: str) -> None:
 
             # ── Helmet Checker (Module 1) ───────────────────────────────────
             all_violations = []
+            two_wheeler_statuses = []
             if _helmet_checker is not None:
                 try:
                     for v in vehicles:
@@ -295,6 +298,7 @@ def _run_analysis(source, source_type: str) -> None:
                     
                     _helmet_checker.drain_completed()
                     all_violations = _helmet_checker.get_active_violations()
+                    two_wheeler_statuses = _helmet_checker.get_two_wheeler_statuses()
                 except Exception as exc:
                     print(f"[server] Helmet checker error: {exc}")
 
@@ -354,6 +358,7 @@ def _run_analysis(source, source_type: str) -> None:
                 _latest_counts = counts
                 _latest_plates = plates_map
                 _latest_violations = all_violations
+                _latest_two_wheeler_statuses = two_wheeler_statuses
                 _latest_pedestrians = {
                     "total": pedestrian_summary.get("total", 0),
                     "males": pedestrian_summary.get("males", 0),
@@ -431,8 +436,10 @@ def _run_analysis(source, source_type: str) -> None:
                     pass
 
             final_violations = []
+            final_two_wheeler_statuses = []
             if _helmet_checker is not None:
                 final_violations = _helmet_checker.all_violations
+                final_two_wheeler_statuses = _helmet_checker.get_two_wheeler_statuses()
 
             final_pedestrians = {"total": 0, "males": 0, "females": 0, "children": 0}
             if _pedestrian_detector is not None:
@@ -453,6 +460,7 @@ def _run_analysis(source, source_type: str) -> None:
                     "counts": final_counts,
                     "plates": final_plates,
                     "violations": final_violations,
+                    "two_wheeler_statuses": final_two_wheeler_statuses,
                     "pedestrians": final_pedestrians
                 }
 
@@ -590,6 +598,7 @@ async def video_feed(websocket: WebSocket):
                     for p in _latest_plates.values()
                 ]
                 violations = list(_latest_violations)
+                two_wheeler_statuses = list(_latest_two_wheeler_statuses)
                 pedestrians = dict(_latest_pedestrians)
                 fps        = round(_latest_fps, 1)
                 src        = _source_type
@@ -605,6 +614,7 @@ async def video_feed(websocket: WebSocket):
                 "counts":     counts,       # per-frame (live progress while processing)
                 "plates":     plates,       # all plates seen so far
                 "violations": violations,
+                "two_wheeler_statuses": two_wheeler_statuses,
                 "pedestrians": pedestrians,
                 "source":     src,
                 "running":    running,
