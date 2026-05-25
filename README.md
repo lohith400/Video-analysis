@@ -69,10 +69,10 @@ traffic_analysis/                              # Project Root Directory
 │       │   ├── Footer.jsx                     # Simple, elegant copyright footer component
 │       │   ├── MetricCard.jsx                 # Displays live stats (FPS, duration, processed frames)
 │       │   ├── Navbar.jsx                     # Dynamic blur-effect floating top navigation bar
-│       │   ├── PlateTable.jsx                 # ANPR log grid showing scrolling plates & confidence levels
-│       │   ├── TwoWheelerSafetyTable.jsx      # Rider & Pillion safety log rendering green/red/gray compliance badges
-│       │   ├── VehicleCounts.jsx              # Category boxes displaying vehicle totals with custom emojis
-│       │   ├── VideoFeed.jsx                  # Video stream player with canvassing and status overlays
+│       │   ├── PlateTable.jsx                 # ANPR log grid rendering scrolling realistic Indian metallic license plates & confidence levels
+│       │   ├── TwoWheelerSafetyTable.jsx      # Rider & Pillion safety log rendering dynamic compliance pill badges and inline plates
+│       │   ├── VehicleCounts.jsx              # Compact horizontal list displaying active vehicle totals and percentages inside a single glass rectangle
+│       │   ├── VideoFeed.jsx                  # Cinematic video stream player with scrolling scanline sweeps, targeting reticle crosshairs, and live diagnostics
 │       │   └── ViolationList.jsx              # Sidebar listing categorized compliance violations
 │       │
 │       └── pages/                             # Core Screen Dashboards
