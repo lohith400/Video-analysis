@@ -35,12 +35,10 @@ def _get_counts_snapshot() -> dict:
 
 
 def open_capture(source: str) -> cv2.VideoCapture:
-    # Convert Windows UNC path to Linux path automatically
     if source.startswith("\\\\wsl.localhost\\Ubuntu"):
         source = source.replace("\\\\wsl.localhost\\Ubuntu", "").replace("\\", "/")
     elif source.startswith("\\wsl.localhost\\Ubuntu"):
         source = source.replace("\\wsl.localhost\\Ubuntu", "").replace("\\", "/")
-
     cap = cv2.VideoCapture(source)
     if source.lower().startswith("rtsp://"):
         cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
@@ -50,7 +48,6 @@ def open_capture(source: str) -> cv2.VideoCapture:
 def read_frame_with_reconnect(
     cap: cv2.VideoCapture, source: str
 ) -> tuple[cv2.VideoCapture, bool, object]:
-    """Read one frame; on RTSP failure reconnect after 5s (infinite retry)."""
     is_rtsp = source.lower().startswith("rtsp://")
     while True:
         try:
@@ -62,7 +59,6 @@ def read_frame_with_reconnect(
         except Exception:
             if not is_rtsp:
                 return cap, False, None
-
         print(f"[RTSP] Connection lost. Reconnecting in {config.RTSP_RECONNECT_WAIT_SEC}s...")
         cap.release()
         time.sleep(config.RTSP_RECONNECT_WAIT_SEC)
@@ -76,24 +72,16 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Real-time traffic analysis with YOLOv8 + EasyOCR"
     )
-    parser.add_argument(
-        "--source",
-        type=str,
-        required=True,
-        help="Video file path or RTSP URL (e.g. rtsp://user:pass@ip:554/stream)",
-    )
-    parser.add_argument(
-        "--no-ocr",
-        action="store_true",
-        help="Skip plate detection and OCR — run vehicle detection only",
-    )
+    parser.add_argument("--source", type=str, required=True,
+        help="Video file path or RTSP URL")
+    parser.add_argument("--no-ocr", action="store_true",
+        help="Skip plate detection and OCR — run vehicle detection only")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
 
-    # Normalize Windows UNC path to Linux path
     source = args.source
     if source.startswith("\\\\wsl.localhost\\Ubuntu"):
         source = source.replace("\\\\wsl.localhost\\Ubuntu", "").replace("\\", "/")
@@ -104,7 +92,6 @@ def main() -> int:
 
     if not source.lower().startswith("rtsp://") and not Path(source).exists():
         print(f"Error: source not found: {source}", file=sys.stderr)
-        print(f"Tip: Use Linux path like /home/lohit/... instead of Windows UNC path", file=sys.stderr)
         return 1
 
     device = get_device()
@@ -113,11 +100,8 @@ def main() -> int:
 
     loader = VehicleModelLoader(device)
     tracker = VehicleTracker(loader.yolo, device, loader.vehicle_class_ids)
-    
-    # Initialize high-precision line-crossing counter
     counter = TrafficCounter()
 
-    # Only load OCR engine if needed
     ocr = None
     if use_ocr:
         from ocr_engine import OCREngine
@@ -150,24 +134,22 @@ def main() -> int:
                 break
 
             vehicles = tracker.track(frame)
-            
-            # Update TrafficCounter state & calculate cumulative crossings
             counter.update(vehicles, frame.shape)
-            
-            # Sync cumulative counts snapshot for the background CSV logger
+
             with _state_lock:
                 global _latest_counts
                 _latest_counts = counter.get_counts()
 
-            # Only run plate pipeline if OCR is enabled
             if use_ocr:
                 run_plate = frame_idx % config.PLATE_DETECT_EVERY_N_FRAMES == 0
                 if run_plate:
                     for v in vehicles:
                         if _should_run_plate_pipeline(v, ocr):
-                            crop = crop_vehicle(frame, v.bbox)
+                            # FIX: crop_vehicle now returns (crop, padded_bbox)
+                            # Pass padded_bbox to submit so plate coords remap correctly
+                            crop, padded_bbox = crop_vehicle(frame, v.bbox)
                             if crop.size > 0:
-                                ocr.submit_vehicle_crop(v.track_id, crop, v.bbox)
+                                ocr.submit_vehicle_crop(v.track_id, crop, padded_bbox)
                 ocr.drain_completed()
 
             t_now = time.perf_counter()
@@ -206,7 +188,6 @@ def main() -> int:
         if use_ocr and ocr:
             ocr.shutdown()
 
-    # Output a gorgeous, highly-accurate final statistics summary
     final_counts = counter.get_counts()
     print("\n" + "═" * 60)
     print(" 🚗💨   INDIAN ROAD INTELLIGENCE SYSTEM - REPORT SUMMARY   🚗💨 ")
@@ -220,7 +201,6 @@ def main() -> int:
     print(f" {'💥 TOTAL COUNTED':<25} ║ {final_counts.get('total', 0):<20}")
     print("═" * 60)
     print(f" Logs saved to: {config.CSV_PATH}\n")
-
     return 0
 
 
@@ -229,13 +209,10 @@ def _should_run_plate_pipeline(vehicle: TrackedVehicle, ocr) -> bool:
         return False
     if vehicle.vehicle_class not in config.PLATE_DETECTION_CLASSES:
         return False
-    
-    # Check if the vehicle is large/close enough to have a readable license plate
     x1, y1, x2, y2 = vehicle.bbox
     bbox_height = y2 - y1
     if bbox_height < config.MIN_VEHICLE_HEIGHT_FOR_OCR:
         return False
-        
     return ocr.needs_ocr(vehicle.track_id)
 
 
