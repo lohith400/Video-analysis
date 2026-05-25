@@ -24,75 +24,86 @@ def draw_annotations(
     pedestrians: Optional[Dict] = None,
 ) -> np.ndarray:
     out = frame.copy()
+    
+    # (Removed virtual counting gate drawing as counting is now universal)
 
+    # 2. Draw vehicle bounding boxes and labels
     for v in vehicles:
+        # Determine color from raw or mapped class
         color = config.BOX_COLORS.get(v.vehicle_class, (200, 200, 200))
         x1, y1, x2, y2 = v.bbox
         cv2.rectangle(out, (x1, y1), (x2, y2), color, 2)
 
+        # Use voted class name if counter is available for stability
         label_class = counter.get_voted_class(v.track_id) if counter else v.vehicle_class
         label_text = f"{label_class} ID:{v.track_id}"
+        
         _draw_label(out, label_text, x1, y1, color)
-
+        
+        # Draw plate text below the vehicle if OCR succeeded
         plate = plate_texts.get(v.track_id)
         if plate:
-            _draw_label_below(out, plate, x1, y2, color)
-
-        # FIX: plate_boxes stores coords relative to the PADDED vehicle crop.
-        # The padded crop origin was passed as vehicle_bbox in submit_vehicle_crop.
-        # Since we now pass padded_bbox (not v.bbox), the rel coords map back to
-        # the padded origin — which is already in original frame space.
-        # So abs_plate = padded_origin + rel_plate. But we only have v.bbox here,
-        # not padded_bbox. The padding is config-side (15px), so we subtract it:
+            _draw_label_below(out, plate, x1, y1, color)
+            
+        # Draw a sleek bright green bounding box around the license plate itself if coordinate is detected
         if plate_boxes and v.track_id in plate_boxes:
             px1, py1, px2, py2 = plate_boxes[v.track_id]
-            pad = 15  # must match crop_vehicle() pad parameter
-            # padded origin = (x1 - pad, y1 - pad) clamped to 0
-            padded_vx1 = max(0, x1 - pad)
-            padded_vy1 = max(0, y1 - pad)
-            abs_px1 = padded_vx1 + px1
-            abs_py1 = padded_vy1 + py1
-            abs_px2 = padded_vx1 + px2
-            abs_py2 = padded_vy1 + py2
+            abs_px1 = x1 + px1
+            abs_py1 = y1 + py1
+            abs_px2 = x1 + px2
+            abs_py2 = y1 + py2
             cv2.rectangle(out, (abs_px1, abs_py1), (abs_px2, abs_py2), (0, 255, 0), 2)
 
+    # 4. Draw helmet violations
     if violations:
         for viol in violations:
             if "person_bbox" in viol:
                 px1, py1, px2, py2 = viol["person_bbox"]
+                # Draw a second bright red box around the person who has no helmet
                 cv2.rectangle(out, (px1, py1), (px2, py2), (0, 0, 255), 2)
+                
+                # Add text label NO HELMET in red above that person box
                 _draw_label(out, "NO HELMET", px1, py1, (0, 0, 255))
+                
+                # Add plate and violation type text below that box
                 plate_text = viol.get("plate", "UNKNOWN")
                 v_type = viol.get("violation_type", "")
                 v_label = v_type.replace("_", " ").title()
                 below_text = f"{plate_text} - {v_label}"
                 _draw_label_below(out, below_text, px1, py2, (0, 0, 255))
 
+    # 5. Draw pedestrians
     if pedestrians and "details" in pedestrians:
         for p in pedestrians["details"]:
             if "bbox" in p:
                 px1, py1, px2, py2 = p["bbox"]
                 gender = p.get("gender", "unknown")
+                
                 if gender == "male_adult":
-                    color = (255, 0, 0)
+                    color = (255, 0, 0)       # Blue (BGR: 255, 0, 0)
                     label = "Male"
                 elif gender == "female_adult":
-                    color = (128, 0, 128)
+                    color = (128, 0, 128)     # Purple (BGR: 128, 0, 128)
                     label = "Female"
                 elif gender == "child":
-                    color = (0, 255, 255)
+                    color = (0, 255, 255)     # Yellow (BGR: 0, 255, 255)
                     label = "Child"
                 else:
-                    color = (255, 255, 255)
+                    color = (255, 255, 255)   # White
                     label = "Person"
+                    
                 cv2.rectangle(out, (px1, py1), (px2, py2), color, 2)
                 _draw_label(out, label, px1, py1, color)
 
+    # 3. Draw heads-up display (HUD)
     _draw_hud(out, category_counts, fps, total_plates, counter)
     return out
 
 
-def _draw_label(frame: np.ndarray, text: str, x: int, y: int, color: tuple) -> None:
+
+def _draw_label(
+    frame: np.ndarray, text: str, x: int, y: int, color: tuple
+) -> None:
     font = cv2.FONT_HERSHEY_SIMPLEX
     scale = 0.5
     thickness = 1
@@ -101,7 +112,9 @@ def _draw_label(frame: np.ndarray, text: str, x: int, y: int, color: tuple) -> N
     _draw_text_bg(frame, text, x, ty, tw, th, baseline, font, scale, thickness, color)
 
 
-def _draw_label_below(frame: np.ndarray, text: str, x: int, y: int, color: tuple) -> None:
+def _draw_label_below(
+    frame: np.ndarray, text: str, x: int, y: int, color: tuple
+) -> None:
     font = cv2.FONT_HERSHEY_SIMPLEX
     scale = 0.45
     thickness = 1
@@ -110,8 +123,16 @@ def _draw_label_below(frame: np.ndarray, text: str, x: int, y: int, color: tuple
     _draw_text_bg(frame, text, x, ty, tw, th, baseline, font, scale, thickness, color)
 
 
-def _draw_text_bg(frame, text, x, ty, tw, th, baseline, font, scale, thickness, color) -> None:
-    cv2.rectangle(frame, (x, ty - th - 4), (x + tw + 4, ty + baseline), (0, 0, 0), -1)
+def _draw_text_bg(
+    frame, text, x, ty, tw, th, baseline, font, scale, thickness, color
+) -> None:
+    cv2.rectangle(
+        frame,
+        (x, ty - th - 4),
+        (x + tw + 4, ty + baseline),
+        (0, 0, 0),
+        -1,
+    )
     cv2.putText(frame, text, (x + 2, ty), font, scale, color, thickness, cv2.LINE_AA)
 
 
@@ -123,6 +144,7 @@ def _draw_hud(
     counter: Optional["TrafficCounter"] = None,
 ) -> None:
     if counter:
+        # Use cumulative high-precision universal counts
         cum_counts = counter.get_counts()
         lines = [
             f"FPS: {fps:.1f} | TRACKING: ACTIVE",
@@ -133,6 +155,7 @@ def _draw_hud(
             f"Plates detected (session): {total_plates}",
         ]
     else:
+        # Fallback to legacy raw frame-by-frame counts
         lines = [
             f"FPS: {fps:.1f} | TRACKING: ACTIVE",
             f"Total Tracked: {counts.get('total', 0)}",

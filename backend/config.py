@@ -5,21 +5,26 @@ PLATE_MODEL = "models/license_plate_detector.pt"
 CSV_PATH = "traffic_log.csv"
 CSV_UPDATE_INTERVAL = 1  # seconds
 
-CONF_THRESHOLD = 0.40
-PLATE_CONF_THRESHOLD = 0.25
+CONF_THRESHOLD = 0.40  # Raised from 0.25 to prevent low-confidence noise and track fragmentation
+PLATE_CONF_THRESHOLD = 0.25  # Lowered from 0.5 to catch plates with lower initial model confidences on fast vehicles
 IOU_THRESHOLD = 0.5
 USE_HALF = True
 
 MIN_PLATE_CHARS = 4
 MAX_PLATE_CHARS = 10
 
-MIN_TRACK_AGE = 30
+# Minimum active frames a track must exist to filter out ephemeral false positives
+MIN_TRACK_AGE = 30     # Raised to 30 (1 second) to filter out highly-fragmented short-lived tracks
 
-# FIX: was 100 — fine for 4K since ultralytics returns original-frame coords
-MIN_VEHICLE_HEIGHT_FOR_OCR = 80
+# Minimum bounding box height (in pixels) of the vehicle before attempting OCR
+# Prevents wasting the 10 OCR attempts when the vehicle is far away and unreadable
+MIN_VEHICLE_HEIGHT_FOR_OCR = 100
 
+# Virtual counting line as percentages: (start_x_pct, start_y_pct, end_x_pct, end_y_pct)
+# Placed horizontally at 65% height
 COUNTING_LINE_PCT = (0.0, 0.65, 1.0, 0.65)
 
+# Map raw detection classes (COCO/Custom) to precise target user classes
 USER_CLASS_MAPPING = {
     "car": "Car",
     "motorcycle": "Bike/Motorcycle",
@@ -60,6 +65,7 @@ BOX_COLORS = {
     "bicycle": (255, 255, 255),
 }
 
+# COCO class IDs from yolov8n (when using default pretrained weights)
 COCO_VEHICLE_ID_MAP = {
     1: "bicycle",
     2: "car",
@@ -69,8 +75,7 @@ COCO_VEHICLE_ID_MAP = {
 }
 
 TRACKER_CONFIG = "models/custom_bytetrack.yaml"
-# FIX: reduced from 3 to 2 — more plate detection attempts per fast-moving vehicle
-PLATE_DETECT_EVERY_N_FRAMES = 2
+PLATE_DETECT_EVERY_N_FRAMES = 3
 TARGET_MIN_FPS = 15
 OCR_MAX_WORKERS = 4
 RTSP_RECONNECT_WAIT_SEC = 5

@@ -32,6 +32,31 @@ class PlateDetector:
         self.model = YOLO(str(plate_path))
         self.model.to(device)
 
+    def detect_plate_region(
+        self, vehicle_crop: np.ndarray
+    ) -> Optional[np.ndarray]:
+        if vehicle_crop is None or vehicle_crop.size == 0:
+            return None
+        results = self.model.predict(
+            vehicle_crop,
+            conf=config.PLATE_CONF_THRESHOLD,
+            iou=config.IOU_THRESHOLD,
+            half=config.USE_HALF,
+            device=self.device,
+            verbose=False,
+        )
+        if not results or results[0].boxes is None or len(results[0].boxes) == 0:
+            return None
+        boxes = results[0].boxes
+        best_idx = int(boxes.conf.argmax().item())
+        x1, y1, x2, y2 = boxes.xyxy[best_idx].cpu().numpy().astype(int)
+        h, w = vehicle_crop.shape[:2]
+        x1, y1 = max(0, x1), max(0, y1)
+        x2, y2 = min(w, x2), min(h, y2)
+        if x2 <= x1 or y2 <= y1:
+            return None
+        return vehicle_crop[y1:y2, x1:x2].copy()
+
     def detect_plate_bbox(
         self, vehicle_crop: np.ndarray
     ) -> Optional[Tuple[Tuple[int, int, int, int], np.ndarray]]:
@@ -59,19 +84,12 @@ class PlateDetector:
         return (x1, y1, x2, y2), vehicle_crop[y1:y2, x1:x2].copy()
 
 
-def crop_vehicle(
-    frame: np.ndarray, bbox: Tuple[int, int, int, int], pad: int = 15
-) -> Tuple[np.ndarray, Tuple[int, int, int, int]]:
-    """Crop vehicle from frame with padding. Returns (crop, padded_bbox).
-    Always use the returned padded_bbox when calling submit_vehicle_crop —
-    NOT the original v.bbox — so plate coordinates remap correctly."""
+def crop_vehicle(frame: np.ndarray, bbox: Tuple[int, int, int, int]) -> np.ndarray:
     x1, y1, x2, y2 = bbox
     h, w = frame.shape[:2]
-    x1 = max(0, x1 - pad)
-    y1 = max(0, y1 - pad)
-    x2 = min(w, x2 + pad)
-    y2 = min(h, y2 + pad)
-    return frame[y1:y2, x1:x2].copy(), (x1, y1, x2, y2)
+    x1, y1 = max(0, x1), max(0, y1)
+    x2, y2 = min(w, x2), min(h, y2)
+    return frame[y1:y2, x1:x2].copy()
 
 
 class VehicleModelLoader:
