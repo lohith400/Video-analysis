@@ -243,13 +243,15 @@ class OCREngine:
         print(f"[OCREngine] Initialized on {device} with {max_workers} thread pool workers.")
 
     def needs_ocr(self, track_id: int) -> bool:
-        """Determines if a vehicle track requires OCR."""
+        """Determines if a vehicle track requires more OCR attempts."""
         with self._lock:
-            if track_id in self.results:
-                return False
+            # Only stop if a fully-valid plate (matches Indian regex) is already confirmed
+            existing = self.results.get(track_id)
+            if existing and INDIAN_PLATE_REGEX.match(existing) is not None:
+                return False  # We have a valid plate — no more OCR needed
             if track_id in self.pending_futures:
-                return False
-            # Max out at 10 attempts per vehicle to conserve GPU/CPU resources
+                return False  # Already running
+            # Allow up to 10 attempts per vehicle
             if self.attempts.get(track_id, 0) >= 10:
                 return False
             return True
@@ -413,35 +415,36 @@ class OCREngine:
                             # Print a debug message to monitor OCR progress
                             print(f"[OCREngine] Track #{track_id} OCR read: '{plate_text}' (is_valid: {is_valid})")
                             
-                            # Accept any plate text that is non-empty and within valid length range
-                            # (not just those matching the strict Indian regex — partials like KA051 are valid results)
+                            # Require at least 2 matching OCR reads before accepting a plate.
+                            # This filters single-attempt garbage reads like 'J5Y5RLG' or 'O57L'.
                             if plate_text and config.MIN_PLATE_CHARS <= len(plate_text) <= config.MAX_PLATE_CHARS:
-                                # 1. Update rolling OCR history for majority voting (up to 10 frames)
+                                # 1. Update rolling OCR history for majority voting (up to 10 reads)
                                 if track_id not in self.ocr_history:
                                     self.ocr_history[track_id] = []
                                 self.ocr_history[track_id].append(plate_text)
                                 if len(self.ocr_history[track_id]) > 10:
                                     self.ocr_history[track_id].pop(0)
-                                    
-                                # 2. Calculate majority vote
+
+                                # 2. Only accept the plate if at least 2 reads agree (majority vote)
                                 counter = collections.Counter(self.ocr_history[track_id])
                                 most_common_plate, count = counter.most_common(1)[0]
                                 confidence = (count / len(self.ocr_history[track_id])) * 100
-                                
-                                # 3. Print final output to console with exact format
+
+                                # 3. Log to console
                                 import time
                                 timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
                                 valid_tag = "✓ VALID" if is_valid else "~ PARTIAL"
-                                print(f"[{timestamp}] Vehicle #{track_id} → Plate: {most_common_plate} ({valid_tag}, confidence: {confidence:.0f}%)")
-                                
-                                # 4. Save result — prefer a fully-valid plate over a partial one
-                                existing = self.results.get(track_id)
-                                # Overwrite with the new result only if:
-                                #  - no result exists yet, OR
-                                #  - the new result is fully valid and existing is not
-                                existing_valid = existing and INDIAN_PLATE_REGEX.match(existing) is not None
-                                if not existing or (is_valid and not existing_valid):
-                                    self.results[track_id] = most_common_plate
+                                print(f"[{timestamp}] Vehicle #{track_id} → Plate: {most_common_plate} ({valid_tag}, votes: {count}/{len(self.ocr_history[track_id])}, conf: {confidence:.0f}%)")
+
+                                # 4. MINIMUM 2 VOTES required before saving to results
+                                #    This blocks single-attempt garbage from appearing in the UI
+                                if count >= 2:
+                                    existing = self.results.get(track_id)
+                                    existing_valid = existing and INDIAN_PLATE_REGEX.match(existing) is not None
+                                    # Prefer valid plates; only overwrite partial with partial if new has more votes
+                                    if not existing or (is_valid and not existing_valid):
+                                        self.results[track_id] = most_common_plate
+                                    print(f"[OCREngine] ✓ Plate confirmed for track #{track_id}: {most_common_plate}")
                     except Exception as exc:
                         print(f"[OCREngine] Future error for track {track_id}: {exc}")
                     completed_ids.append(track_id)
