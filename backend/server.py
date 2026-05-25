@@ -164,13 +164,32 @@ def _stop_current(timeout: float = 3.0) -> None:
 
 def _reset_summary() -> None:
     """Clear previous video summary before starting a new source."""
-    global _video_done, _video_summary, _latest_violations, _latest_pedestrians, _latest_two_wheeler_statuses
+    global _video_done, _video_summary, _latest_violations, _latest_pedestrians, _latest_two_wheeler_statuses, _latest_plates
     with _state_lock:
         _video_done    = False
         _video_summary = None
         _latest_violations = []
         _latest_two_wheeler_statuses = []
+        _latest_plates = {}
         _latest_pedestrians = {"total": 0, "males": 0, "females": 0, "children": 0, "details": []}
+    # Also clear the OCR engine's accumulated results so plates from a previous
+    # video session don't bleed into the new one
+    if _ocr is not None:
+        with _ocr._lock:
+            _ocr.results.clear()
+            _ocr.plate_boxes.clear()
+            _ocr.pending_futures.clear()
+            _ocr.attempts.clear()
+            _ocr.vehicle_crop_buffer.clear()
+            _ocr.ocr_history.clear()
+    # Clear helmet checker session state
+    if _helmet_checker is not None:
+        with _helmet_checker._lock:
+            _helmet_checker.active_violations.clear()
+            _helmet_checker.two_wheeler_status.clear()
+            _helmet_checker.all_two_wheeler_statuses.clear()
+            _helmet_checker.attempts.clear()
+            _helmet_checker.pending_futures.clear()
 
 
 # ── Analysis thread ────────────────────────────────────────────────────────
@@ -289,13 +308,29 @@ def _run_analysis(source, source_type: str) -> None:
                 try:
                     for v in vehicles:
                         if v.vehicle_class in config.TWO_WHEELER_CLASSES:
+                            # ── INSTANT LOG: add every two-wheeler immediately on first detection
+                            # so it appears in the table right away (status = unknown until model runs)
+                            with _helmet_checker._lock:
+                                if v.track_id not in _helmet_checker.all_two_wheeler_statuses:
+                                    plate_now = "UNKNOWN"
+                                    if _ocr is not None:
+                                        plate_now = _ocr.get_plate(v.track_id) or "UNKNOWN"
+                                    _helmet_checker.all_two_wheeler_statuses[v.track_id] = {
+                                        "track_id": v.track_id,
+                                        "plate": plate_now,
+                                        "vehicle_class": v.vehicle_class,
+                                        "rider_helmet": "unknown",
+                                        "pillion_helmet": "none",
+                                        "timestamp": current_timestamp()
+                                    }
+
                             if _helmet_checker.should_check(v.track_id, frame_idx):
                                 plate = "UNKNOWN"
                                 if _ocr is not None:
                                     plate = _ocr.get_plate(v.track_id) or "UNKNOWN"
                                 crop = crop_vehicle(frame, v.bbox)
                                 _helmet_checker.submit(v.track_id, crop, v.vehicle_class, plate, current_timestamp(), v.bbox)
-                    
+
                     _helmet_checker.drain_completed()
                     all_violations = _helmet_checker.get_active_violations()
                     two_wheeler_statuses = _helmet_checker.get_two_wheeler_statuses()

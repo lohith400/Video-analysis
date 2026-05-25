@@ -413,8 +413,10 @@ class OCREngine:
                             # Print a debug message to monitor OCR progress
                             print(f"[OCREngine] Track #{track_id} OCR read: '{plate_text}' (is_valid: {is_valid})")
                             
-                            if is_valid:
-                                # 1. Update rolling valid OCR history for majority voting (up to 10 frames)
+                            # Accept any plate text that is non-empty and within valid length range
+                            # (not just those matching the strict Indian regex — partials like KA051 are valid results)
+                            if plate_text and config.MIN_PLATE_CHARS <= len(plate_text) <= config.MAX_PLATE_CHARS:
+                                # 1. Update rolling OCR history for majority voting (up to 10 frames)
                                 if track_id not in self.ocr_history:
                                     self.ocr_history[track_id] = []
                                 self.ocr_history[track_id].append(plate_text)
@@ -429,10 +431,17 @@ class OCREngine:
                                 # 3. Print final output to console with exact format
                                 import time
                                 timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-                                print(f"[{timestamp}] Vehicle #{track_id} → Plate: {most_common_plate} (confidence: {confidence:.0f}%)")
+                                valid_tag = "✓ VALID" if is_valid else "~ PARTIAL"
+                                print(f"[{timestamp}] Vehicle #{track_id} → Plate: {most_common_plate} ({valid_tag}, confidence: {confidence:.0f}%)")
                                 
-                                # 4. Save results
-                                self.results[track_id] = most_common_plate
+                                # 4. Save result — prefer a fully-valid plate over a partial one
+                                existing = self.results.get(track_id)
+                                # Overwrite with the new result only if:
+                                #  - no result exists yet, OR
+                                #  - the new result is fully valid and existing is not
+                                existing_valid = existing and INDIAN_PLATE_REGEX.match(existing) is not None
+                                if not existing or (is_valid and not existing_valid):
+                                    self.results[track_id] = most_common_plate
                     except Exception as exc:
                         print(f"[OCREngine] Future error for track {track_id}: {exc}")
                     completed_ids.append(track_id)

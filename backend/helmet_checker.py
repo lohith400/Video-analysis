@@ -7,7 +7,7 @@ import threading
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import numpy as np
 from ultralytics import YOLO
@@ -32,9 +32,10 @@ class HelmetChecker:
         self.executor = ThreadPoolExecutor(max_workers=2)
         
         # State tracking
-        self.active_violations: Dict[int, List[Dict]] = {}  # track_id -> list of violations
+        self.active_violations: Dict[int, List[Dict]] = {}  # track_id -> list of violations (cleared when vehicle leaves)
         self.all_violations: List[Dict] = []               # All violations detected in this session
-        self.two_wheeler_status: Dict[int, Dict] = {}       # track_id -> complete safety status details
+        self.two_wheeler_status: Dict[int, Dict] = {}       # track_id -> latest safety status (active tracks only)
+        self.all_two_wheeler_statuses: Dict[int, Dict] = {} # track_id -> safety status (NEVER purged — full session log)
         self.attempts: Dict[int, int] = {}                  # track_id -> attempts count
         self.pending_futures: Dict[int, Future[Optional[Tuple[List[Dict], Dict]]]] = {} # track_id -> Future
 
@@ -47,7 +48,8 @@ class HelmetChecker:
                 return False
             if frame_idx % config.HELMET_CHECK_EVERY_N != 0:
                 return False
-            if self.attempts.get(track_id, 0) >= 5:
+            # Allow up to 15 attempts per track to improve detection reliability
+            if self.attempts.get(track_id, 0) >= 15:
                 return False
             return True
 
@@ -206,6 +208,8 @@ class HelmetChecker:
                                 
                             # Update safety status log
                             self.two_wheeler_status[track_id] = status
+                            # Also update the permanent session-wide log (never purged)
+                            self.all_two_wheeler_statuses[track_id] = status
                     except Exception as exc:
                         print(f"[HelmetChecker] Future error for track {track_id}: {exc}")
                     completed_ids.append(track_id)
@@ -223,17 +227,19 @@ class HelmetChecker:
             return flat_viols
 
     def get_two_wheeler_statuses(self) -> List[Dict]:
+        """Returns all two-wheeler statuses seen this session (never purged)."""
         with self._lock:
-            return list(self.two_wheeler_status.values())
+            return list(self.all_two_wheeler_statuses.values())
 
     def cleanup_stale(self, active_track_ids: Set[int]) -> None:
         with self._lock:
+            # Only clean up active_violations for tracks no longer visible
+            # DO NOT remove entries from two_wheeler_status or all_two_wheeler_statuses
+            # so the safety log persists for the full session
             for tid in list(self.active_violations.keys()):
                 if tid not in active_track_ids:
                     self.active_violations.pop(tid, None)
-            for tid in list(self.two_wheeler_status.keys()):
-                if tid not in active_track_ids:
-                    self.two_wheeler_status.pop(tid, None)
+            # Clean up lightweight state for stale tracks
             for tid in list(self.attempts.keys()):
                 if tid not in active_track_ids:
                     self.attempts.pop(tid, None)
