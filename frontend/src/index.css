@@ -144,3 +144,13 @@ body {
     linear-gradient(to right, rgba(2, 132, 199, 0.03) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(2, 132, 199, 0.03) 1px, transparent 1px);
 }
+
+@keyframes scanline {
+  0% {
+    top: 0%;
+  }
+  100% {
+    top: 100%;
+  }
+}
+

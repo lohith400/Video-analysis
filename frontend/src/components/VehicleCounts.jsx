@@ -90,81 +90,82 @@ function OdometerValue({ value }) {
 export default function VehicleCounts({ counts = {} }) {
   const total = counts.total || 0;
 
+  // Filter to only display categories that are actively detected (> 0)
+  const activeVehicles = VEHICLE_TYPES.filter(({ key }) => (counts[key] || 0) > 0);
+
   return (
     <div className="select-none">
       {/* Header telemetry tag */}
-      <div className="flex items-center justify-between mb-4 border-b border-sky-border/30 pb-2">
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full live-pulse bg-sky-default shadow-sm shadow-sky-default/30" />
-          <h3 className="font-heading font-extrabold text-sm text-sky-dark uppercase tracking-wider">
-            Vehicle Breakdown
-          </h3>
+      <div className="flex items-center justify-between mb-4 border-b border-sky-border/30 pb-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-sky-default/10 flex items-center justify-center text-sky-default">
+            <Car className="w-4 h-4" />
+          </div>
+          <div>
+            <h3 className="font-heading font-extrabold text-xs text-sky-dark uppercase tracking-wider">
+              Vehicle Breakdown
+            </h3>
+            <p className="text-[9px] text-sky-dark/45 font-mono uppercase">Live crossing segregation</p>
+          </div>
         </div>
-        <div className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-sky-default bg-sky-surface/30 border border-sky-border/40 px-2 py-0.5 rounded-lg shadow-sm">
+        <div className="flex items-center gap-1.5 font-mono text-[9.5px] font-bold text-sky-default bg-sky-surface border border-sky-border/40 px-2.5 py-0.5 rounded-lg shadow-sm">
           <span>SUM:</span>
-          <span className="text-sky-dark font-extrabold">
+          <span className="text-sky-dark font-extrabold select-all">
             <OdometerValue value={total} />
           </span>
         </div>
       </div>
 
-      {/* Grid count cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        {VEHICLE_TYPES.map(({ key, label, icon: IconComponent }) => {
-          const count = counts[key] || 0;
-          const ratio = total > 0 ? (count / total) * 100 : 0;
-          
-          return (
-            <motion.div
-              key={key}
-              className="relative overflow-hidden rounded-xl p-3 bg-white/40 border border-sky-border/40 flex flex-col justify-between shadow-sm"
-              whileHover={{ 
-                y: -2, 
-                borderColor: "#38BDF8", 
-                backgroundColor: "rgba(255,255,255,0.7)",
-                boxShadow: "0 4px 12px -2px rgba(56, 189, 248, 0.08)"
-              }}
-              transition={{ duration: 0.2 }}
-            >
-              {/* Card visual background shimmer loader overlay on updates */}
-              {count > 0 && (
-                <div className="absolute inset-0 bg-gradient-to-r from-sky-surface/5 via-sky-surface/30 to-sky-surface/5 pointer-events-none opacity-20 -translate-x-full animate-[shimmer_1.5s_infinite]" />
-              )}
-
-              {/* Icon & Ratio Gauge */}
-              <div className="flex items-start justify-between">
-                <div className="p-2 rounded-lg bg-sky-surface/60 text-sky-default border border-sky-border/20 shadow-inner">
+      {activeVehicles.length === 0 ? (
+        <div className="px-4 py-8 text-center text-[9px] font-heading font-extrabold text-sky-dark/40 uppercase tracking-widest border border-dashed border-sky-border/40 rounded-2xl bg-white/10">
+          Waiting for vehicle crossings...
+        </div>
+      ) : (
+        /* Sleek horizontal continuous layout inside a single rectangle */
+        <div className="rounded-2xl border border-sky-border/30 bg-white/30 p-4 shadow-sm flex flex-wrap gap-x-5 gap-y-4 items-center justify-start">
+          {activeVehicles.map(({ key, label, icon: IconComponent }, index) => {
+            const count = counts[key] || 0;
+            const ratio = total > 0 ? (count / total) * 100 : 0;
+            
+            return (
+              <div 
+                key={key} 
+                className="flex items-center gap-3.5"
+              >
+                {/* Inline Icon container */}
+                <div className="p-2.5 rounded-xl bg-sky-surface/30 text-sky-default border border-sky-border/20 shadow-inner flex items-center justify-center">
                   <IconComponent className="w-4 h-4" />
                 </div>
                 
-                {/* Micro linear progress capsule */}
-                <div className="flex flex-col items-end gap-1">
-                  <span className="font-mono text-[8px] font-bold text-sky-default/70">{ratio.toFixed(0)}%</span>
-                  <div className="w-10 h-1 bg-sky-surface rounded-full overflow-hidden border border-sky-border/20">
-                    <motion.div 
-                      className="h-full bg-sky-default rounded-full" 
-                      initial={{ width: 0 }}
-                      animate={{ width: `${ratio}%` }}
-                      transition={{ duration: 0.8, ease: "easeOut" }}
-                    />
+                {/* Counts & Percentage Info */}
+                <div className="flex flex-col">
+                  <div className="flex items-baseline gap-1.5 leading-none">
+                    <span className="font-mono text-base font-extrabold text-sky-dark select-all">
+                      <OdometerValue value={count} />
+                    </span>
+                    <span className="font-mono text-[8px] font-extrabold text-sky-default bg-sky-surface/40 px-1.5 py-0.5 rounded-md border border-sky-border/10 select-none">
+                      {ratio.toFixed(0)}%
+                    </span>
                   </div>
+                  <span className="text-[8.5px] font-heading font-extrabold text-sky-dark/50 uppercase tracking-widest mt-1.5 leading-none">
+                    {label}
+                  </span>
                 </div>
+                
+                {/* Continuous visual divider line between cards */}
+                {index < activeVehicles.length - 1 && (
+                  <div className="h-7 w-[1px] bg-sky-border/30 ml-2 hidden sm:block select-none" />
+                )}
               </div>
-
-              {/* Numerical Counts & Labels */}
-              <div className="mt-3.5 select-none leading-none">
-                <div className="font-mono text-lg font-extrabold text-sky-dark select-all">
-                  <OdometerValue value={count} />
-                </div>
-                <div className="text-[9px] font-heading font-extrabold text-sky-dark/55 uppercase tracking-wider mt-1.5">
-                  {label}
-                </div>
-              </div>
-            </motion.div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
+
+
+
+
 
