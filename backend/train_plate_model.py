@@ -17,17 +17,18 @@ def main():
     # 3. Train using transfer learning on the license plate dataset
     print("Starting fine-tuning...")
     results = model.train(
-        data     = 'plate_dataset/data.yaml',
-        epochs   = 12,
+        data     = 'plate_dataset/indian-plate-detector.yolov8/data.yaml',
+        epochs   = 50,                # Increased for better accuracy on custom Indian plate dataset
         imgsz    = 640,
         batch    = 8,                 # Reduced from 16 to prevent CUDA Out Of Memory on 6GB laptop GPU
-        name     = 'indian_plate_v1',
+        name     = 'indian_plate_v2',
         device   = 0 if torch.cuda.is_available() else 'cpu',
-        amp      = True,               # Correct way to enable fast FP16 mixed precision training (replaces half=True)
+        amp      = True,               # FP16 mixed precision training for RTX 3050
         save     = True,
-        val      = False,              # Disable validation during training to prevent memory spikes and WSL2 crashes
+        val      = True,              # Validation enabled now that we have a proper dataset split
         plots    = True,
-        verbose  = True, workers = 0,
+        verbose  = True,
+        workers  = 0,
     )
 
     print("\n✅ Training complete!")
