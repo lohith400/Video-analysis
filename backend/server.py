@@ -221,6 +221,24 @@ def _run_analysis(source, source_type: str) -> None:
     with _state_lock:
         _is_running = True
 
+    out_writer = None
+    if source_type == "VIDEO" and isinstance(source, str):
+        try:
+            output_dir = Path("output_videos")
+            output_dir.mkdir(exist_ok=True)
+            safe_name = Path(source).name
+            out_path = output_dir / safe_name
+            
+            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            fps_val = cap.get(cv2.CAP_PROP_FPS) or 30.0
+            
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            out_writer = cv2.VideoWriter(str(out_path), fourcc, fps_val, (width, height))
+            print(f"[server] Saving output video to {out_path.resolve()}")
+        except Exception as exc:
+            print(f"[server] WARNING: Could not initialize VideoWriter: {exc}")
+
     csv_logger = None
     try:
         from csv_logger import CSVLogger
@@ -428,6 +446,12 @@ def _run_analysis(source, source_type: str) -> None:
                 print(f"[server] Annotation error: {exc}")
                 annotated = frame
 
+            if out_writer is not None:
+                try:
+                    out_writer.write(annotated)
+                except Exception as exc:
+                    print(f"[server] Error writing output frame: {exc}")
+
             _push_frame(_frame_to_b64(annotated))
             frame_idx += 1
 
@@ -436,6 +460,12 @@ def _run_analysis(source, source_type: str) -> None:
 
     finally:
         cap.release()
+        if out_writer is not None:
+            try:
+                out_writer.release()
+                print(f"[server] Released output video writer.")
+            except Exception as exc:
+                print(f"[server] Error releasing output video writer: {exc}")
         if csv_logger:
             try:
                 csv_logger.stop()
