@@ -9,11 +9,9 @@ Orchestrates custom YOLOv8 model training, evaluation reports, visual tests, and
 from __future__ import annotations
 
 import argparse
-import os
 import shutil
 import sys
 from pathlib import Path
-from typing import Optional, Tuple
 
 try:
     import torch
@@ -51,7 +49,7 @@ def check_cuda() -> str:
         device_name = torch.cuda.get_device_name(0)
         # Approximate VRAM calculation
         total_vram = torch.cuda.get_device_properties(0).total_memory / (1024**3)
-        print(f"  ● CUDA GPU acceleration: ACTIVE ✓")
+        print("  ● CUDA GPU acceleration: ACTIVE ✓")
         print(f"  ● GPU Name: {device_name}")
         print(f"  ● Total VRAM: {total_vram:.2f} GB")
         return "0"
@@ -118,17 +116,17 @@ def train_model(mode: str) -> None:
         sys.exit(1)
 
     best_path = Path("runs") / "detect" / name / "weights" / "best.pt"
-    print(f"\n=======================================================")
-    print(f"TRAINING COMPLETED SUCCESSFUL ✓")
-    print(f"=======================================================")
+    print("\n=======================================================")
+    print("TRAINING COMPLETED SUCCESSFUL ✓")
+    print("=======================================================")
     if best_path.exists():
         print(f"Best model weights saved to: {best_path}")
     else:
         print("Trained model weights saved inside runs/detect/ folder.")
-    print(f"=======================================================")
-    print(f"Next step, run:")
+    print("=======================================================")
+    print("Next step, run:")
     print(f"  python train_models.py --step evaluate_{mode}")
-    print(f"=======================================================")
+    print("=======================================================")
 
 
 def find_best_weights(name: str) -> Path:
@@ -179,7 +177,7 @@ def evaluate_model(mode: str) -> None:
         print(f"Make sure you ran the training step: python train_models.py --step train_{mode}")
         sys.exit(1)
 
-    print(f"\nLoading model and executing validation on dataset splits...")
+    print("\nLoading model and executing validation on dataset splits...")
     model = YOLO(str(best_pt))
     
     # Run validation checks
@@ -195,15 +193,15 @@ def evaluate_model(mode: str) -> None:
     recall = rdict.get("metrics/recall(B)", 0.0)
 
     # Print gorgeous report block
-    print(f"\n================================================")
+    print("\n================================================")
     print(f"{mode.upper()} MODEL EVALUATION RESULTS")
-    print(f"================================================")
+    print("================================================")
     print(f"Overall mAP50:       {mAP50:.4f}")
     print(f"Overall mAP50-95:    {mAP50_95:.4f}")
     print(f"Overall Precision:   {precision:.4f}")
     print(f"Overall Recall:      {recall:.4f}")
-    print(f"------------------------------------------------")
-    print(f"Per Class Results:")
+    print("------------------------------------------------")
+    print("Per Class Results:")
     
     # Retrieve per class AP values
     # val_results.box.ap contains list of AP50-95 per class, val_results.box.ap50 contains AP50 per class
@@ -212,10 +210,10 @@ def evaluate_model(mode: str) -> None:
         ap = ap50_vals[idx] if idx < len(ap50_vals) else 0.0
         print(f"  {name:<20} AP = {ap:.4f}")
         
-    print(f"------------------------------------------------")
-    print(f"Research Paper Values:")
+    print("------------------------------------------------")
+    print("Research Paper Values:")
     print(f"  mAP50 = {mAP50:.4f}  (report this in your paper)")
-    print(f"================================================\n")
+    print("================================================\n")
 
     # Evaluation guidance
     if mAP50 > 0.80:
@@ -268,12 +266,12 @@ def run_visual_test(model: YOLO, mode: str) -> None:
         
         out_path = test_out_dir / f"{mode}_test.jpg"
         cv2.imwrite(str(out_path), annotated_frame)
-        print(f"Visual test image saved successfully ✓")
+        print("Visual test image saved successfully ✓")
         print(f"Visual test path: {out_path}")
-        print(f"=======================================================")
-        print(f"Next step, run:")
-        print(f"  python train_models.py --step deploy")
-        print(f"=======================================================")
+        print("=======================================================")
+        print("Next step, run:")
+        print("  python train_models.py --step deploy")
+        print("=======================================================")
 
 
 def deploy_models() -> None:
@@ -333,16 +331,16 @@ def deploy_models() -> None:
         except Exception as exc:
             print(f"  ⚠ ERROR: Failed to verify loading model {info['dest'].name}: {exc}")
 
-    print(f"\n=======================================================")
-    print(f"DEPLOYMENT COMPLETE")
-    print(f"=======================================================")
+    print("\n=======================================================")
+    print("DEPLOYMENT COMPLETE")
+    print("=======================================================")
     
     for key, info in deployed_status.items():
         print(f"  {info['dest'].name:<20} → {info['size']:.2f} MB  Classes: {len(info.get('classes', []))}")
 
-    print(f"\nBoth models are ready in your models/ directory.")
+    print("\nBoth models are ready in your models/ directory.")
     print("Your IRIS Road Intelligence system will automatically activate them at startup!")
-    print(f"=======================================================")
+    print("=======================================================")
 
 
 def main() -> None:

@@ -4,7 +4,6 @@ Runs models/helmet_detector.pt asynchronously inside a thread pool to detect hel
 from __future__ import annotations
 
 import threading
-import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
@@ -13,6 +12,7 @@ import numpy as np
 from ultralytics import YOLO
 
 import config
+from helmet_logic import classify_riders
 
 
 class HelmetChecker:
@@ -129,57 +129,17 @@ class HelmetChecker:
                     "conf": float(confs[i])
                 })
 
-            # Sort leftmost to rightmost by x_center
-            detected_persons.sort(key=lambda p: p["x_center"])
-
-            violations = []
-            vx1, vy1, vx2, vy2 = vehicle_bbox if vehicle_bbox else (0, 0, 0, 0)
-            
-            rider_helmet = "unknown"
-            pillion_helmet = "none"
-
-            # Rider (leftmost / first person)
-            if len(detected_persons) >= 1:
-                rider = detected_persons[0]
-                mapped = config.HELMET_CLASS_MAP.get(rider["class_name"], "helmet")
-                rider_helmet = mapped
-                if mapped == "no_helmet":
-                    rx1, ry1, rx2, ry2 = rider["bbox"]
-                    violations.append({
-                        "track_id": track_id,
-                        "plate": plate,
-                        "vehicle_class": vehicle_class,
-                        "violation_type": "rider_no_helmet",
-                        "timestamp": timestamp,
-                        "frame_violation": True,
-                        "person_bbox": (vx1 + rx1, vy1 + ry1, vx1 + rx2, vy1 + ry2)
-                    })
-
-            # Pillion (second person)
-            if len(detected_persons) >= 2:
-                pillion = detected_persons[1]
-                mapped = config.HELMET_CLASS_MAP.get(pillion["class_name"], "helmet")
-                pillion_helmet = mapped
-                if mapped == "no_helmet":
-                    px1, py1, px2, py2 = pillion["bbox"]
-                    violations.append({
-                        "track_id": track_id,
-                        "plate": plate,
-                        "vehicle_class": vehicle_class,
-                        "violation_type": "pillion_no_helmet",
-                        "timestamp": timestamp,
-                        "frame_violation": True,
-                        "person_bbox": (vx1 + px1, vy1 + py1, vx1 + px2, vy1 + py2)
-                    })
-
-            status_record = {
-                "track_id": track_id,
-                "plate": plate,
-                "vehicle_class": vehicle_class,
-                "rider_helmet": rider_helmet,
-                "pillion_helmet": pillion_helmet,
-                "timestamp": timestamp
-            }
+            # Rider/pillion assignment, helmet mapping, and violation
+            # building now lives in helmet_logic.classify_riders() so it
+            # can be unit tested without a model in the loop.
+            violations, status_record = classify_riders(
+                detected_persons,
+                track_id,
+                plate,
+                vehicle_class,
+                timestamp,
+                vehicle_bbox,
+            )
 
             return violations, status_record
 

@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 import cv2
 import numpy as np
 
 import config
-from tracker import TrackedVehicle
+from schemas import TrackedVehicle
+
+if TYPE_CHECKING:
+    from traffic_counter import TrafficCounter
 
 
 def draw_annotations(

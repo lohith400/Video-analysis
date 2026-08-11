@@ -45,7 +45,7 @@ def sanitize_labels():
                     f.writelines(modified_lines)
                 total_modified += 1
 
-    print(f"Sanitization complete:")
+    print("Sanitization complete:")
     print(f"  - Total label files processed: {total_files}")
     print(f"  - Label files updated/unified to class 0: {total_modified}")
 

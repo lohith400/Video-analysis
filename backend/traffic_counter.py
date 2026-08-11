@@ -7,7 +7,7 @@ import time
 from typing import Dict, List, Optional, Set, Tuple
 
 import config
-from tracker import TrackedVehicle
+from schemas import TrackedVehicle
 
 
 class TrafficCounter:

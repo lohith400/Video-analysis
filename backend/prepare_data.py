@@ -13,7 +13,7 @@ import os
 import shutil
 import sys
 from pathlib import Path
-from typing import List, Tuple
+from typing import List
 
 try:
     import cv2
@@ -197,7 +197,7 @@ def setup_dataset(mode: str) -> None:
     all_images = sorted([p for p in img_src.iterdir() if p.suffix.lower() == ".jpg"])
     all_labels = sorted([p for p in lbl_src.iterdir() if p.suffix.lower() == ".txt"])
 
-    print(f"\nCounting files in source directories:")
+    print("\nCounting files in source directories:")
     print(f"Total Images: {len(all_images)}")
     print(f"Total Labels: {len(all_labels)}")
 
@@ -280,18 +280,18 @@ names:
     with open(yaml_file, "w", encoding="utf-8") as f:
         f.write(yaml_content)
 
-    print(f"\n=======================================================")
+    print("\n=======================================================")
     print(f"DATASET READY: {train_dir.name}")
-    print(f"=======================================================")
+    print("=======================================================")
     print(f"Train images: {train_copied}")
     print(f"Val images:   {val_copied}")
     print(f"Test images:  {test_copied}")
     print(f"Generated YAML at: {yaml_file}")
     print(f"Absolute Path Configuration: {abs_train_path}")
-    print(f"=======================================================")
-    print(f"Next step, run:")
+    print("=======================================================")
+    print("Next step, run:")
     print(f"  python train_models.py --step train_{mode}")
-    print(f"=======================================================")
+    print("=======================================================")
 
 
 def main() -> None:

@@ -29,14 +29,24 @@ def current_timestamp() -> str:
     return datetime.now().isoformat()
 
 try:
-    from fastapi import FastAPI, File, UploadFile, WebSocket, WebSocketDisconnect
+    from fastapi import Depends, FastAPI, File, UploadFile, WebSocket, WebSocketDisconnect
     from fastapi.middleware.cors import CORSMiddleware
     from pydantic import BaseModel
 except ImportError:
     raise SystemExit("Run: pip install fastapi uvicorn python-multipart")
 
+import os
+import secrets
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()  # loads backend/.env if present; no-op otherwise
+except ImportError:
+    pass  # python-dotenv is optional — env vars can be set another way
+
 import config
-from annotator import count_by_category, draw_annotations
+from annotator import draw_annotations
+from auth import API_KEY, require_api_key
 from detector import VehicleModelLoader, crop_vehicle, get_device, crop_vehicle as crop_person
 from tracker import VehicleTracker
 from helmet_checker import HelmetChecker
@@ -44,13 +54,26 @@ from pedestrian_detector import PedestrianDetector, RawBox
 
 # ── FastAPI ────────────────────────────────────────────────────────────────
 app = FastAPI(title="Indian Road Intelligence System")
+
+# CORS origins come from env (comma-separated) so a deployed frontend isn't
+# stuck behind a wildcard. Defaults to permissive for local dev only.
+_cors_origins_env = os.getenv("IRIS_CORS_ORIGINS", "").strip()
+_cors_origins = [o.strip() for o in _cors_origins_env.split(",") if o.strip()] or ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+if not API_KEY:
+    print(
+        "[server] WARNING: IRIS_API_KEY is not set — all REST/WebSocket "
+        "endpoints are UNAUTHENTICATED. Set IRIS_API_KEY before exposing "
+        "this server beyond localhost."
+    )
 
 # ── Runtime state ──────────────────────────────────────────────────────────
 _state_lock = threading.Lock()
@@ -220,24 +243,6 @@ def _run_analysis(source, source_type: str) -> None:
 
     with _state_lock:
         _is_running = True
-
-    out_writer = None
-    if source_type == "VIDEO" and isinstance(source, str):
-        try:
-            output_dir = Path("output_videos")
-            output_dir.mkdir(exist_ok=True)
-            safe_name = Path(source).name
-            out_path = output_dir / safe_name
-            
-            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            fps_val = cap.get(cv2.CAP_PROP_FPS) or 30.0
-            
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            out_writer = cv2.VideoWriter(str(out_path), fourcc, fps_val, (width, height))
-            print(f"[server] Saving output video to {out_path.resolve()}")
-        except Exception as exc:
-            print(f"[server] WARNING: Could not initialize VideoWriter: {exc}")
 
     csv_logger = None
     try:
@@ -446,12 +451,6 @@ def _run_analysis(source, source_type: str) -> None:
                 print(f"[server] Annotation error: {exc}")
                 annotated = frame
 
-            if out_writer is not None:
-                try:
-                    out_writer.write(annotated)
-                except Exception as exc:
-                    print(f"[server] Error writing output frame: {exc}")
-
             _push_frame(_frame_to_b64(annotated))
             frame_idx += 1
 
@@ -460,12 +459,6 @@ def _run_analysis(source, source_type: str) -> None:
 
     finally:
         cap.release()
-        if out_writer is not None:
-            try:
-                out_writer.release()
-                print(f"[server] Released output video writer.")
-            except Exception as exc:
-                print(f"[server] Error releasing output video writer: {exc}")
         if csv_logger:
             try:
                 csv_logger.stop()
@@ -556,7 +549,7 @@ async def health():
     }
 
 
-@app.post("/upload")
+@app.post("/upload", dependencies=[Depends(require_api_key)])
 async def upload(file: UploadFile = File(...)):
     global _analysis_thread
 
@@ -588,7 +581,7 @@ class ConnectRequest(BaseModel):
     source: str
 
 
-@app.post("/connect")
+@app.post("/connect", dependencies=[Depends(require_api_key)])
 async def connect(req: ConnectRequest):
     global _analysis_thread
 
@@ -612,7 +605,7 @@ async def connect(req: ConnectRequest):
     return {"status": "connecting", "source": req.source}
 
 
-@app.post("/stop")
+@app.post("/stop", dependencies=[Depends(require_api_key)])
 async def stop():
     _stop_current()
     _reset_summary()
@@ -638,6 +631,14 @@ async def analytics():
 
 @app.websocket("/video-feed")
 async def video_feed(websocket: WebSocket):
+    # WebSocket handshakes can't carry custom headers from a browser, so the
+    # key is passed as a query param instead: /video-feed?api_key=...
+    if API_KEY:
+        supplied = websocket.query_params.get("api_key", "")
+        if not secrets.compare_digest(supplied, API_KEY):
+            await websocket.close(code=4401)  # custom code: unauthorized
+            return
+
     await websocket.accept()
     print("[WS] Client connected")
 

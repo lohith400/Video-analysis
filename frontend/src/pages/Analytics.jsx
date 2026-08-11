@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import { api } from "../api";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   BarChart2, 
@@ -18,7 +18,6 @@ import {
 import MetricCard from "../components/MetricCard";
 import { VehicleDistributionChart, VehiclesOverTimeChart } from "../components/Charts";
 
-const API = "http://localhost:8000";
 
 const CSV_HEADERS = [
   "Timestamp", "Total", "Cars", "Trucks", "Buses",
@@ -80,7 +79,7 @@ export default function Analytics() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await axios.get(`${API}/analytics`);
+        const res = await api.get(`/analytics`);
         setCsvData(res.data?.rows || []);
       } catch {
         setCsvData(MOCK_DATA);

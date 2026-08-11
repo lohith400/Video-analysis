@@ -2,6 +2,7 @@
   "name": "indian-road-intelligence-system",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "dependencies": {
     "axios": "^1.6.0",
     "framer-motion": "^12.39.0",

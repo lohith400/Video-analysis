@@ -70,7 +70,7 @@ def main():
                 pass
             skipped_count += 1
             
-    print(f"\n✅ Auto-annotation complete!")
+    print("\n✅ Auto-annotation complete!")
     print(f"  - Annotated with plates: {annotated_count} images")
     print(f"  - Empty background frames: {skipped_count} images")
     print(f"All YOLO label files (.txt) saved successfully to: {labels_dir}/")

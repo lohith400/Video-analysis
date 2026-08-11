@@ -1,5 +1,4 @@
 from detector import VehicleModelLoader, PlateDetector, crop_vehicle
-from tracker import VehicleTracker
 import cv2
 import config
 import torch
