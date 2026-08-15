@@ -3,8 +3,8 @@
 
 FROM node:20-alpine AS build
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY package.json ./
+RUN npm install --ignore-scripts
 COPY . .
 
 # Vite inlines VITE_ vars at build time, not at container runtime —
@@ -14,7 +14,7 @@ ARG VITE_API_KEY=
 ENV VITE_API_URL=${VITE_API_URL}
 ENV VITE_API_KEY=${VITE_API_KEY}
 
-RUN npm run build
+RUN node node_modules/vite/bin/vite.js build
 
 FROM nginx:1.27-alpine
 COPY --from=build /app/dist /usr/share/nginx/html
