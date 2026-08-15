@@ -68,3 +68,8 @@ frontend/build/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Environment files (never commit real secrets)
+.env
+*.env
+!.env.example
