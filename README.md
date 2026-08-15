@@ -1,137 +1,168 @@
-# Indian Road Intelligence System
+# IRIS — Indian Road Intelligence System
 
-Real-time traffic video analysis, Automatic Number Plate Recognition (ANPR), and safety compliance monitoring system. Features custom-trained **YOLOv8** detectors connected to a beautiful **React (Vite) dashboard**.
+![CI](https://github.com/lohith400/Video-analysis/actions/workflows/ci.yml/badge.svg)
+![Python](https://img.shields.io/badge/python-3.12-blue)
+![React](https://img.shields.io/badge/react-18.2-61DAFB)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Status](https://img.shields.io/badge/status-working%20prototype-yellow)
 
-This repository is optimized to run **natively on Windows** with **GPU acceleration** powered by your NVIDIA GeForce RTX 3050 Laptop GPU.
+Real-time traffic video analysis for Indian roads: multi-class vehicle
+detection & tracking, automatic number-plate recognition (ANPR),
+two-wheeler helmet-compliance checking, and pedestrian demographic
+classification — streamed live to a React dashboard and logged for
+historical analytics.
 
----
+Built end-to-end by a single developer: custom-trained YOLOv8 detectors,
+a FastAPI + WebSocket backend, and a Vite/React dashboard. See
+[MODEL_CARD.md](MODEL_CARD.md) and [LIMITATIONS.md](LIMITATIONS.md) for
+an honest breakdown of what's validated and what isn't — this project
+treats accuracy claims as development-stage indicators, not deployment
+guarantees.
 
-## 🚀 How to Run the Project (Windows Native)
+## Why this exists
 
-Follow these steps to run the FastAPI API and the React web dashboard.
+Most off-the-shelf traffic-analytics models are trained on Western or
+Chinese traffic and underperform on Indian road conditions: a high
+proportion of two-wheelers and auto-rickshaws, dense/irregular lane
+discipline, inconsistent plate formats, and inconsistent helmet
+compliance. IRIS is a from-scratch attempt at a pipeline tuned for that
+distribution — three custom-trained YOLOv8-Nano models (plate detector,
+helmet classifier, pedestrian demographics classifier) integrated with
+ByteTrack, EasyOCR, and hand-tuned business logic.
 
-### Step 1: Start the Python Backend (FastAPI)
-1. Open a terminal (Git Bash, Command Prompt, or PowerShell) in the project root.
-2. Navigate to the `backend` directory:
-   ```bash
-   cd backend
-   ```
-3. Launch the API server using your virtual environment:
-   * **In PowerShell or CMD**:
-     ```cmd
-     ..\.venv\Scripts\python server.py
-     ```
-   * **In Git Bash**:
-     ```bash
-     ../.venv/Scripts/python server.py
-     ```
-   *The backend will initialize EasyOCR with CUDA acceleration on your RTX 3050 GPU and start listening on `http://localhost:8000`.*
+## Architecture
 
-### Step 2: Start the React Frontend (Vite)
-1. Open a **second** terminal in the project root.
-2. Navigate to the `frontend` directory:
-   ```bash
-   cd frontend
-   ```
-3. Start the Vite development server:
-   ```bash
-   npm run dev
-   ```
-   *The dashboard will compile and open instantly at **[http://localhost:3000](http://localhost:3000)**.*
-
----
-
-## 🌳 Complete Visual Project Tree & File Directory
-
-Here is the complete nested directory structure of the repository showing **each and every file and its exact purpose**:
-
-```
-traffic_analysis/                              # Project Root Directory
-├── .gitignore                                 # Git exclusions (ignores .venv, node_modules, etc.)
-├── README.md                                  # You are here - project roadmap & start guide
-├── .venv/                                     # Python Virtual Environment (Windows Native modules)
-│
-├── frontend/                                  # React (Vite) Frontend Sub-Project Directory
-│   ├── .npmrc                                 # Configures npm to use cmd.exe on Windows to prevent Bash execution block
-│   ├── index.html                             # Single-page application root entry HTML document
-│   ├── package.json                           # NPM dependencies, scripts (dev, build, lint) & project metadata
-│   ├── postcss.config.js                      # PostCSS optimizer configuration utility
-│   ├── tailwind.config.js                     # Tailwind theme limits, colors, fonts, and animation transitions config
-│   ├── vite.config.js                         # Vite dev server and proxy configuration
-│   └── src/                                   # Frontend Source Directory
-│       ├── main.jsx                           # Application bootstrap mounting script
-│       ├── App.jsx                            # Shared routing and page layout coordinator
-│       ├── index.css                          # Custom global styling, daylight scrollbars & glassmorphism classes
-│       │
-│       ├── components/                        # UI Functional Widgets
-│       │   ├── AlertBanner.jsx                # Flashes red warning pulses instantly on severe helmet violations
-│       │   ├── Charts.jsx                     # Renders traffic count and safety analytics graphs
-│       │   ├── Footer.jsx                     # Simple, elegant copyright footer component
-│       │   ├── MetricCard.jsx                 # Displays live stats (FPS, duration, processed frames)
-│       │   ├── Navbar.jsx                     # Dynamic blur-effect floating top navigation bar
-│       │   ├── PlateTable.jsx                 # ANPR log grid rendering scrolling realistic Indian metallic license plates & confidence levels
-│       │   ├── TwoWheelerSafetyTable.jsx      # Rider & Pillion safety log rendering dynamic compliance pill badges and inline plates
-│       │   ├── VehicleCounts.jsx              # Compact horizontal list displaying active vehicle totals and percentages inside a single glass rectangle
-│       │   ├── VideoFeed.jsx                  # Cinematic video stream player with scrolling scanline sweeps, targeting reticle crosshairs, and live diagnostics
-│       │   └── ViolationList.jsx              # Sidebar listing categorized compliance violations
-│       │
-│       └── pages/                             # Core Screen Dashboards
-│           ├── Home.jsx                       # Landing page hosting video upload dropzones and line configuration
-│           ├── LiveAnalysis.jsx               # Active command center orchestrating WebSocket streams and data tables
-│           └── Analytics.jsx                  # Intelligence terminal parsing graphs from historical CSV logs
-│
-└── backend/                                   # FastAPI + YOLOv8 + EasyOCR Backend Sub-Project Directory
-    ├── requirements.txt                       # Backend pip dependency package listings
-    ├── traffic_log.csv                        # Main database logging vehicle crossings, ANPR reads & timestamps
-    ├── train_error.log                        # Technical compiler logs tracking GPU hardware errors
-    ├── main.txt                               # Legacy textual roadmap outlining development history
-    ├── server.py                              # FastAPI entry gateway that streams video frames & coordinates WS payloads
-    ├── config.py                              # Pipeline parameters, checkpoints, and thresholds configuration
-    ├── helmet_checker.py                      # Rider/Pillion helmet detector & compliance logging engine
-    ├── pedestrian_detector.py                 # Crosswalk pedestrian classifier mapping Gender/Child demographics
-    ├── ocr_engine.py                          # Async multi-threaded OCR engine reading plate characters
-    ├── tracker.py                             # Localized ByteTrack multi-object persistent tracker
-    ├── traffic_counter.py                     # Centroid crossings line manager that logs counts
-    ├── detector.py                            # Wrapper for batch box inferences
-    ├── annotator.py                           # Frame drawing manager drawing boundary boxes, lists & line coordinates
-    ├── prepare_data.py                        # Frames extractor & automated dataset directories splitter
-    ├── train_models.py                        # MLOps pipeline automating GPU YOLO trainings & weights deployments
-    ├── auto_annotate.py                       # Pre-annotation tool using custom weights to bootstrap labeling
-    ├── extract_frames.py                      # Frame sampler utility slicing media files into image directories
-    ├── sanitize_dataset.py                    # Annotation files sanitation script
-    ├── download_models.py                     # Download utility pulling base YOLO model parameters
-    ├── verify_pipeline.py                     # Diagnostic validation script checking CUDA and hardware bindings
-    ├── verify_pipeline_debug.py               # Diagnostic debugging checklist trace logger
-    ├── test_model.py                          # Stand-alone detection validation tool
-    ├── test_traffic_counter.py                # Diagnostic tracking line crossed auditor
-    ├── evaluate_model.py                      # Basic metrics validation checks
-    ├── train_plate_model.py                   # Legacy license plate training engine
-    ├── yolo26n.pt                             # Custom-compiled vision network parameters
-    ├── yolov8n.pt                             # Default pretrained vehicle network parameters
-    │
-    ├── models/                                # Production Model Weights Directory
-    │   ├── custom_bytetrack.yaml              # Multi-object ByteTrack tracking config file
-    │   ├── gender_detector.pt                 # Custom pedestrian model classifying demographics
-    │   ├── helmet_detector.pt                 # Custom safety model classifying helmet compliance
-    │   └── license_plate_detector.pt          # Custom high-precision license plate detector
-    │
-    ├── dataset/                               # Dataset engineering repository (legacy)
-    ├── gender_dataset/                        # Pedestrian dataset storage folder
-    ├── gender_dataset_train/                  # GPU Pedestrian training split outputs
-    ├── helmet_dataset/                        # Helmet dataset storage folder
-    ├── helmet_dataset_train/                  # GPU Helmet training split outputs
-    ├── plate_dataset/                         # Custom License plate dataset storage folder
-    ├── runs/                                  # YOLO checkpoints, logs & metrics reports
-    ├── scratch/                               # Temporary testing play sandbox scripts
-    ├── uploads/                               # Gateway temporary video storage folder
-    └── videos/                                # Sample traffic test streams
+```mermaid
+flowchart LR
+    A[Video Source<br/>File / RTSP / Webcam] --> B[YOLOv8n Detector<br/>+ ByteTrack]
+    B --> C{Route to secondary<br/>engines by track}
+    C --> D[ANPR Engine<br/>EasyOCR + CLAHE]
+    C --> E[Helmet Checker]
+    C --> F[Pedestrian<br/>Demographics]
+    D --> G[Merge Layer]
+    E --> G
+    F --> G
+    B --> G
+    G --> H[WebSocket<br/>Live Stream]
+    G --> I[CSV Logger<br/>1 Hz]
+    H --> J[React Dashboard]
+    I --> J
 ```
 
----
+**Design choice worth calling out:** the three secondary engines (ANPR,
+helmet, pedestrian) run in independent `ThreadPoolExecutor` pools rather
+than inline in the detection loop. OCR and secondary classification are
+far slower than detection — running them synchronously would collapse
+frame rate. Decoupling them keeps the primary loop near real-time while
+secondary results arrive a few frames later and are merged back in by
+track ID.
 
-## ⚡ GPU Hardware Acceleration
-Check your hardware acceleration status by running this command from the project root:
-```cmd
-.venv/Scripts/python.exe -c "import torch; print(torch.cuda.is_available())"
+## Tech stack
+
+| Layer | Stack |
+|---|---|
+| Detection & tracking | Ultralytics YOLOv8-Nano, ByteTrack |
+| ANPR | EasyOCR, OpenCV (CLAHE, bilateral filter, Otsu threshold) |
+| Backend | FastAPI, Uvicorn, WebSockets, Python 3.12 |
+| Frontend | React 18, Vite, Tailwind CSS, Recharts, Framer Motion |
+| ML runtime | PyTorch (CUDA 12.4 on the reference dev machine; CPU-compatible) |
+
+Full pinned versions: [`backend/requirements.txt`](backend/requirements.txt),
+[`frontend/package.json`](frontend/package.json).
+
+## Quickstart
+
+### Option A — Docker (recommended)
+
+```bash
+git clone https://github.com/lohith400/Video-analysis.git
+cd Video-analysis
+
+# Trained weights are not committed to this repo (large binaries don't
+# belong in git). Place your .pt files here before starting:
+#   backend/models/license_plate_detector.pt
+#   backend/models/helmet_detector.pt
+#   backend/models/gender_detector.pt
+# The pipeline runs without them too — plate/helmet/pedestrian detection
+# just gets disabled with a warning, vehicle detection still works.
+
+cp backend/.env.example backend/.env      # set IRIS_API_KEY if you want auth on
+cp frontend/.env.example frontend/.env
+
+docker compose up --build
 ```
-*(Should print `True` for your NVIDIA GeForce RTX 3050 Laptop GPU).*
+
+- Dashboard: http://localhost:3000
+- API: http://localhost:8000 (docs at `/docs`)
+
+### Option B — Native (matches the original dev environment)
+
+<details>
+<summary>Expand for manual setup steps</summary>
+
+**Backend**
+```bash
+cd backend
+python3.12 -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env
+uvicorn server:app --host 0.0.0.0 --port 8000 --reload
+```
+
+**Frontend**
+```bash
+cd frontend
+npm install
+cp .env.example .env
+npm run dev
+```
+</details>
+
+## API
+
+| Endpoint | Method | Auth | Description |
+|---|---|---|---|
+| `/health` | GET | none | CUDA device + server status |
+| `/upload` | POST | API key* | Upload an MP4 for offline analysis |
+| `/connect` | POST | API key* | Attach an RTSP URL or webcam index as a live source |
+| `/stop` | POST | API key* | Stop the active stream, reset counters |
+| `/analytics` | GET | none | Parsed historical data from the CSV log |
+| `/video-feed` | WS | API key* | Live annotated frames + telemetry as JSON |
+
+\* Auth is opt-in via `IRIS_API_KEY` (see `.env.example`). If unset, the
+server runs open and prints a warning on startup — safe for local dev,
+not for anything internet-facing.
+
+## Testing
+
+```bash
+cd backend
+pip install pytest
+pytest test_traffic_counter.py test_plate_utils.py test_helmet_logic.py test_geometry_utils.py -v
+```
+
+These 36 tests cover the pure-logic pieces — line-crossing geometry,
+class-vote smoothing, Indian plate regex/character-correction, the
+rider/pillion positional heuristic, IoU, and the child-height heuristic —
+without needing a GPU, a trained model, or even `torch`/`ultralytics`
+installed. That's a deliberate split: see the module docstrings in
+`plate_utils.py`, `helmet_logic.py`, and `geometry_utils.py` for why the
+pure logic lives separately from the model-loading classes.
+
+CI (`.github/workflows/ci.yml`) runs these on every push, plus a
+frontend build check and a Docker image build check.
+
+## Current status
+
+Working prototype, functional end-to-end on recorded and live video,
+verified against 18 real-world traffic clips. **Not yet production
+validated** — see [LIMITATIONS.md](LIMITATIONS.md) for the honest
+breakdown (small training datasets, heuristic-based rider/pillion and
+child classification, no load testing, privacy considerations for
+demographic data). [MODEL_CARD.md](MODEL_CARD.md) has the full dataset
+composition and accuracy figures per model.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

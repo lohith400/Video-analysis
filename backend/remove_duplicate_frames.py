@@ -66,7 +66,7 @@ def remove_duplicates():
             print(f"    Processed {i+1}/{len(frames)} -- kept {len(kept_names)}, removed {len(removed)}")
 
     print(f"\n{'='*50}")
-    print(f"DONE!")
+    print("DONE!")
     print(f"  Original : {len(frames)} frames")
     print(f"  Kept     : {len(kept_names)} unique frames")
     print(f"  Removed  : {len(removed)} duplicates")

@@ -13,6 +13,7 @@ import numpy as np
 from ultralytics import YOLO
 
 import config
+from geometry_utils import calculate_iou, is_child_by_height
 
 
 class RawBox:
@@ -20,23 +21,6 @@ class RawBox:
         self.cls = cls
         self.track_id = track_id
         self.bbox = bbox
-
-
-def calculate_iou(box_a: Tuple[int, int, int, int], box_b: Tuple[int, int, int, int]) -> float:
-    inter_x1 = max(box_a[0], box_b[0])
-    inter_y1 = max(box_a[1], box_b[1])
-    inter_x2 = min(box_a[2], box_b[2])
-    inter_y2 = min(box_a[3], box_b[3])
-    
-    inter_width = max(0, inter_x2 - inter_x1)
-    inter_height = max(0, inter_y2 - inter_y1)
-    inter_area = inter_width * inter_height
-    
-    area_a = (box_a[2] - box_a[0]) * (box_a[3] - box_a[1])
-    area_b = (box_b[2] - box_b[0]) * (box_b[3] - box_b[1])
-    
-    union_area = area_a + area_b - inter_area
-    return inter_area / union_area if union_area > 0 else 0.0
 
 
 class PedestrianDetector:
@@ -51,7 +35,9 @@ class PedestrianDetector:
         if not gender_path.exists():
             print(f"[PedestrianDetector] WARNING: Gender model not found at {gender_path}. Trying silent DeepFace fallback...")
             try:
-                from deepface import DeepFace
+                import importlib.util
+                if importlib.util.find_spec("deepface") is None:
+                    raise ImportError("deepface not installed")
                 self.deepface_available = True
                 print("[PedestrianDetector] DeepFace fallback is available and initialized silently.")
             except ImportError:
@@ -196,10 +182,10 @@ class PedestrianDetector:
                         if res is not None:
                             tid, gender, timestamp = res
                             
-                            # Check height override to see if it is physically a child
+                            # Scene-relative child heuristic (documented limitation)
                             height = self.current_heights.get(tid, 0)
                             avg_adult = self.avg_adult_height
-                            if avg_adult > 0.0 and height < config.CHILD_HEIGHT_RATIO * avg_adult:
+                            if is_child_by_height(height, avg_adult, config.CHILD_HEIGHT_RATIO):
                                 gender = "child"
                                 
                             self.results[tid] = gender

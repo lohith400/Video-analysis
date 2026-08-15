@@ -7,7 +7,6 @@ Saves frames to backend/training_frames/
 """
 
 import cv2
-import os
 from pathlib import Path
 
 # ── Config ──────────────────────────────────────────────────────────────
@@ -86,7 +85,7 @@ def extract_frames():
     print(f"\n{'='*50}")
     print(f"COMPLETE -- Total frames extracted: {total_saved}")
     print(f"Output folder: {OUTPUT_DIR.resolve()}")
-    print(f"\nNext step: Upload the 'training_frames' folder to Roboflow for annotation.")
+    print("\nNext step: Upload the 'training_frames' folder to Roboflow for annotation.")
 
 
 if __name__ == "__main__":

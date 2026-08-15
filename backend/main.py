@@ -104,7 +104,7 @@ def main() -> int:
 
     if not source.lower().startswith("rtsp://") and not Path(source).exists():
         print(f"Error: source not found: {source}", file=sys.stderr)
-        print(f"Tip: Use Linux path like /home/lohit/... instead of Windows UNC path", file=sys.stderr)
+        print("Tip: Use Linux path like /home/lohit/... instead of Windows UNC path", file=sys.stderr)
         return 1
 
     device = get_device()

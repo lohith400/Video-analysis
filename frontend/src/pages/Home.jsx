@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import { api, API_URL as API } from "../api";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Video, 
@@ -17,7 +17,6 @@ import {
   RefreshCw
 } from "lucide-react";
 
-const API = "http://localhost:8000";
 
 // ── Lightweight Smooth CountUp ──────────────────────────────────────────────
 export function CountUp({ to, duration = 1.5 }) {
@@ -167,7 +166,7 @@ export default function Home() {
     const form = new FormData();
     form.append("file", videoFile);
     try {
-      await axios.post(`${API}/upload`, form, {
+      await api.post(`/upload`, form, {
         headers: { "Content-Type": "multipart/form-data" },
         onUploadProgress: (e) => setVideoProgress(Math.round((e.loaded / e.total) * 100)),
       });
@@ -196,7 +195,7 @@ export default function Home() {
     const form = new FormData();
     form.append("file", imageFile);
     try {
-      await axios.post(`${API}/upload`, form, { headers: { "Content-Type": "multipart/form-data" } });
+      await api.post(`/upload`, form, { headers: { "Content-Type": "multipart/form-data" } });
       navigate("/live");
     } catch {
       setImageError("Analysis failed. Verify backend connections.");
@@ -226,7 +225,7 @@ export default function Home() {
     setConnecting(true);
     setRtspError("");
     try {
-      await axios.post(`${API}/connect`, { source });
+      await api.post(`/connect`, { source });
       setTimeout(() => navigate("/live"), 500);
     } catch {
       setRtspError("Failed to initiate live link. Check URL pathing.");

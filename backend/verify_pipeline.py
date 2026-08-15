@@ -1,4 +1,4 @@
-from detector import VehicleModelLoader, PlateDetector, crop_vehicle
+from detector import VehicleModelLoader, crop_vehicle
 from tracker import VehicleTracker
 from ocr_engine import OCREngine
 import cv2
@@ -43,7 +43,6 @@ def test():
         boxes = results[0].boxes
         if boxes is not None and len(boxes) > 0:
             xyxy = boxes.xyxy.cpu().numpy()
-            conf = boxes.conf.cpu().numpy()
             cls = boxes.cls.cpu().numpy()
             
             # Submit to OCR if needed

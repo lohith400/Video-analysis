@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 from traffic_counter import TrafficCounter
-from tracker import TrackedVehicle
+from schemas import TrackedVehicle
 
 
 class TestTrafficCounter(unittest.TestCase):

@@ -25,9 +25,7 @@ import TwoWheelerSafetyTable from "../components/TwoWheelerSafetyTable";
 import ViolationList from "../components/ViolationList";
 import AlertBanner from "../components/AlertBanner";
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis } from "recharts";
-
-const WS_URL  = "ws://localhost:8000/video-feed";
-const API_URL = "http://localhost:8000";
+import { api, wsUrlWithAuth } from "../api";
 const RECONNECT_DELAY_MS = 3000;
 const MAX_RECONNECTS     = 10;
 
@@ -407,7 +405,7 @@ export default function LiveAnalysis() {
     if (wsRef.current && wsRef.current.readyState < 2) wsRef.current.close();
 
     setWsStatus("connecting");
-    const ws = new WebSocket(WS_URL);
+    const ws = new WebSocket(wsUrlWithAuth());
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -576,7 +574,7 @@ export default function LiveAnalysis() {
   };
 
   const handleStop = async () => {
-    try { await fetch(`${API_URL}/stop`, { method: "POST" }); } catch { /* fail silently */ }
+    try { await api.post(`/stop`); } catch { /* fail silently */ }
     wsRef.current?.close();
     setFrameData(null); 
     setCounts({}); 

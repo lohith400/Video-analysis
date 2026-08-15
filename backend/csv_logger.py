@@ -6,7 +6,7 @@ import csv
 import threading
 import time
 from datetime import datetime
-from typing import Callable, Dict
+from typing import Callable, Dict, List
 
 import config
 

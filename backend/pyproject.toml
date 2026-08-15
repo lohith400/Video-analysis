@@ -1,0 +1,15 @@
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+exclude = [
+    "*_dataset/",
+    "*_dataset_train/",
+    "runs/",
+    "uploads/",
+]
+
+[tool.ruff.lint]
+# Start permissive — the codebase wasn't linted from day one, so this
+# catches real bugs (unused imports, undefined names) without demanding
+# a full style rewrite before CI goes green.
+select = ["E9", "F"]  # syntax errors + pyflakes (undefined names, unused imports, etc.)

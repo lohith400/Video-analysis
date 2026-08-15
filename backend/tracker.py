@@ -2,21 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import List, Optional
 
 import numpy as np
 from ultralytics import YOLO
 
 import config
+from schemas import TrackedVehicle  # re-exported for backward compatibility
 
-
-@dataclass
-class TrackedVehicle:
-    track_id: int
-    bbox: tuple  # x1, y1, x2, y2
-    confidence: float
-    vehicle_class: str
+__all__ = ["TrackedVehicle", "VehicleTracker"]
 
 
 class VehicleTracker:
