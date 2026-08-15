@@ -57,10 +57,11 @@ jobs:
       - name: Install dependencies
         # --ignore-scripts prevents esbuild's postinstall script from attempting
         # to spawn cmd.exe on Linux, while allowing @esbuild/linux-x64 native binary.
-        run: npm install --ignore-scripts
+        run: rm -f package-lock.json && npm install --ignore-scripts
 
       - name: Build
-        run: npx vite build
+        # Directly execute Vite via Node to bypass npm/npx Windows binary wrapper
+        run: node node_modules/vite/bin/vite.js build
         env:
           VITE_API_URL: http://localhost:8000
 
