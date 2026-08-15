@@ -1,4 +1,4 @@
-﻿name: CI
+name: CI
 
 on:
   push:
@@ -30,7 +30,9 @@ jobs:
         # full requirements.txt here would make CI slow and flaky on
         # shared runners, so this job intentionally scopes to what the
         # unit tests actually import.
-        run: pip install ruff pytest
+        # numpy is required by plate_utils.py (NMS function) and is a
+        # declared production dependency in requirements.txt.
+        run: pip install ruff pytest numpy
 
       - name: Lint (ruff)
         run: ruff check . --output-format=github
