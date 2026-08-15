@@ -57,10 +57,9 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
-        # npm install instead of npm ci: avoids esbuild platform-script
-        # failures when package-lock.json is generated on Windows but
-        # CI runs on Linux (a known npm/esbuild quirk).
-        run: npm install
+        # Remove Windows-generated package-lock.json on Linux runner to avoid
+        # esbuild cmd.exe postinstall script errors, then install fresh for Linux.
+        run: rm -f package-lock.json && npm install
 
       - name: Build
         run: npm run build
