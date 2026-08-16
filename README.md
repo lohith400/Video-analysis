@@ -166,3 +166,5 @@ composition and accuracy figures per model.
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+<!-- Verified SSH commit signing active -->
