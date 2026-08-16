@@ -1,6 +1,0 @@
-path: C:\Users\lohit\.vscode\Code\OWN\traffic_analysis\backend\plate_dataset_train
-train: train/images
-val: val/images
-test: test/images
-nc: 1
-names: ['license_plate']

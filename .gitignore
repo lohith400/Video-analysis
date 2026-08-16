@@ -73,3 +73,12 @@ Thumbs.db
 .env
 *.env
 !.env.example
+
+# Datasets, logs, and build artifacts — never commit
+ci_log*.zip
+ci_log_extracted*/
+indian-license-plates-with-labels.zip
+plate_dataset_raw/
+backend/plate_dataset_train/
+*.timestamp-*.mjs
+
