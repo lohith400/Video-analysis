@@ -1,0 +1,32 @@
+﻿2026-08-15T18:13:08.6007621Z Current runner version: '2.336.0'
+2026-08-15T18:13:08.6035431Z ##[group]Runner Image Provisioner
+2026-08-15T18:13:08.6036290Z Hosted Compute Agent
+2026-08-15T18:13:08.6036973Z Version: 20260729.566
+2026-08-15T18:13:08.6037660Z Commit: cf7153fe6e25b664e8693c24944bf2b00355d109
+2026-08-15T18:13:08.6038381Z Build Date: 2026-07-29T19:17:02Z
+2026-08-15T18:13:08.6039162Z Worker ID: {01b14fdc-6ba3-4c80-93c5-f8c0ab45c42d}
+2026-08-15T18:13:08.6039898Z Azure Region: centralus
+2026-08-15T18:13:08.6040527Z ##[endgroup]
+2026-08-15T18:13:08.6042700Z ##[group]Operating System
+2026-08-15T18:13:08.6043470Z Ubuntu
+2026-08-15T18:13:08.6044200Z 24.04.4
+2026-08-15T18:13:08.6044747Z LTS
+2026-08-15T18:13:08.6045314Z ##[endgroup]
+2026-08-15T18:13:08.6045944Z ##[group]Runner Image
+2026-08-15T18:13:08.6046573Z Image: ubuntu-24.04
+2026-08-15T18:13:08.6047199Z Version: 20260810.271.1
+2026-08-15T18:13:08.6048280Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260810.271/images/ubuntu/Ubuntu2404-Readme.md
+2026-08-15T18:13:08.6050078Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260810.271
+2026-08-15T18:13:08.6051042Z ##[endgroup]
+2026-08-15T18:13:08.6052546Z ##[group]GITHUB_TOKEN Permissions
+2026-08-15T18:13:08.6055465Z Contents: read
+2026-08-15T18:13:08.6056240Z Metadata: read
+2026-08-15T18:13:08.6056844Z Packages: read
+2026-08-15T18:13:08.6057814Z ##[endgroup]
+2026-08-15T18:13:08.6059993Z Secret source: Actions
+2026-08-15T18:13:08.6061564Z Prepare workflow directory
+2026-08-15T18:13:08.6526512Z Prepare all required actions
+2026-08-15T18:13:08.6593728Z Getting action download info
+2026-08-15T18:13:08.8781079Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-08-15T18:13:08.9973535Z Download action repository 'actions/setup-python@v5' (SHA:a26af69be951a213d495a4c3e4e4022e16d87065)
+2026-08-15T18:13:09.1802851Z Complete job name: Backend ΓÇö lint & unit tests

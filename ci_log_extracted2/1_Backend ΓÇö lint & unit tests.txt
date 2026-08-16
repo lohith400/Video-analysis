@@ -1,0 +1,257 @@
+﻿2026-08-15T18:11:08.8743141Z Current runner version: '2.336.0'
+2026-08-15T18:11:08.8767001Z ##[group]Runner Image Provisioner
+2026-08-15T18:11:08.8767878Z Hosted Compute Agent
+2026-08-15T18:11:08.8768513Z Version: 20260729.566
+2026-08-15T18:11:08.8769189Z Commit: cf7153fe6e25b664e8693c24944bf2b00355d109
+2026-08-15T18:11:08.8769899Z Build Date: 2026-07-29T19:17:02Z
+2026-08-15T18:11:08.8770626Z Worker ID: {c944e220-f729-4151-8c4e-3694360e1f8c}
+2026-08-15T18:11:08.8771322Z Azure Region: westus3
+2026-08-15T18:11:08.8772127Z ##[endgroup]
+2026-08-15T18:11:08.8773707Z ##[group]Operating System
+2026-08-15T18:11:08.8774385Z Ubuntu
+2026-08-15T18:11:08.8774957Z 24.04.4
+2026-08-15T18:11:08.8775479Z LTS
+2026-08-15T18:11:08.8775987Z ##[endgroup]
+2026-08-15T18:11:08.8776567Z ##[group]Runner Image
+2026-08-15T18:11:08.8777191Z Image: ubuntu-24.04
+2026-08-15T18:11:08.8777744Z Version: 20260810.271.1
+2026-08-15T18:11:08.8779055Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260810.271/images/ubuntu/Ubuntu2404-Readme.md
+2026-08-15T18:11:08.8780681Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260810.271
+2026-08-15T18:11:08.8781903Z ##[endgroup]
+2026-08-15T18:11:08.8783096Z ##[group]GITHUB_TOKEN Permissions
+2026-08-15T18:11:08.8784996Z Contents: read
+2026-08-15T18:11:08.8785626Z Metadata: read
+2026-08-15T18:11:08.8786337Z Packages: read
+2026-08-15T18:11:08.8786899Z ##[endgroup]
+2026-08-15T18:11:08.8789309Z Secret source: Actions
+2026-08-15T18:11:08.8790362Z Prepare workflow directory
+2026-08-15T18:11:08.9205873Z Prepare all required actions
+2026-08-15T18:11:08.9255372Z Getting action download info
+2026-08-15T18:11:09.2104896Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-08-15T18:11:09.3413176Z Download action repository 'actions/setup-python@v5' (SHA:a26af69be951a213d495a4c3e4e4022e16d87065)
+2026-08-15T18:11:09.5222961Z Complete job name: Backend ΓÇö lint & unit tests
+2026-08-15T18:11:09.5981338Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-08-15T18:11:09.5990478Z ##[group]Run actions/checkout@v4
+2026-08-15T18:11:09.5991217Z with:
+2026-08-15T18:11:09.5991880Z   repository: lohith400/Video-analysis
+2026-08-15T18:11:09.5995739Z   token: ***
+2026-08-15T18:11:09.5996206Z   ssh-strict: true
+2026-08-15T18:11:09.5996636Z   ssh-user: git
+2026-08-15T18:11:09.5997068Z   persist-credentials: true
+2026-08-15T18:11:09.5997545Z   clean: true
+2026-08-15T18:11:09.5997973Z   sparse-checkout-cone-mode: true
+2026-08-15T18:11:09.5998484Z   fetch-depth: 1
+2026-08-15T18:11:09.5998900Z   fetch-tags: false
+2026-08-15T18:11:09.5999330Z   show-progress: true
+2026-08-15T18:11:09.5999765Z   lfs: false
+2026-08-15T18:11:09.6000200Z   submodules: false
+2026-08-15T18:11:09.6000643Z   set-safe-directory: true
+2026-08-15T18:11:09.6001142Z   allow-unsafe-pr-checkout: false
+2026-08-15T18:11:09.6002368Z ##[endgroup]
+2026-08-15T18:11:09.7009322Z Syncing repository: lohith400/Video-analysis
+2026-08-15T18:11:09.7011120Z ##[group]Getting Git version info
+2026-08-15T18:11:09.7012364Z Working directory is '/home/runner/work/Video-analysis/Video-analysis'
+2026-08-15T18:11:09.7013457Z [command]/usr/bin/git version
+2026-08-15T18:11:09.7091633Z git version 2.54.0
+2026-08-15T18:11:09.7118728Z ##[endgroup]
+2026-08-15T18:11:09.7135402Z Temporarily overriding HOME='/home/runner/work/_temp/0692e11c-0c25-4416-889b-decc98fd9551' before making global git config changes
+2026-08-15T18:11:09.7137774Z Adding repository directory to the temporary git global config as a safe directory
+2026-08-15T18:11:09.7141085Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Video-analysis/Video-analysis
+2026-08-15T18:11:09.7190661Z Deleting the contents of '/home/runner/work/Video-analysis/Video-analysis'
+2026-08-15T18:11:09.7194840Z ##[group]Initializing the repository
+2026-08-15T18:11:09.7199377Z [command]/usr/bin/git init /home/runner/work/Video-analysis/Video-analysis
+2026-08-15T18:11:09.7315575Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-08-15T18:11:09.7317275Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-08-15T18:11:09.7318766Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-08-15T18:11:09.7319927Z hint: call:
+2026-08-15T18:11:09.7320606Z hint:
+2026-08-15T18:11:09.7321963Z hint: 	git config --global init.defaultBranch <name>
+2026-08-15T18:11:09.7323041Z hint:
+2026-08-15T18:11:09.7324054Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-08-15T18:11:09.7325640Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-08-15T18:11:09.7326995Z hint:
+2026-08-15T18:11:09.7327810Z hint: 	git branch -m <name>
+2026-08-15T18:11:09.7328641Z hint:
+2026-08-15T18:11:09.7329711Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-08-15T18:11:09.7331824Z Initialized empty Git repository in /home/runner/work/Video-analysis/Video-analysis/.git/
+2026-08-15T18:11:09.7334923Z [command]/usr/bin/git remote add origin https://github.com/lohith400/Video-analysis
+2026-08-15T18:11:09.7376097Z ##[endgroup]
+2026-08-15T18:11:09.7377380Z ##[group]Disabling automatic garbage collection
+2026-08-15T18:11:09.7379993Z [command]/usr/bin/git config --local gc.auto 0
+2026-08-15T18:11:09.7412768Z ##[endgroup]
+2026-08-15T18:11:09.7413922Z ##[group]Setting up auth
+2026-08-15T18:11:09.7418908Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-08-15T18:11:09.7454680Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-08-15T18:11:09.7853154Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-08-15T18:11:09.7891199Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-08-15T18:11:09.8116799Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-08-15T18:11:09.8155264Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-08-15T18:11:09.8378801Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-08-15T18:11:09.8418711Z ##[endgroup]
+2026-08-15T18:11:09.8420677Z ##[group]Fetching the repository
+2026-08-15T18:11:09.8430177Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +8b28610bc0c628ace24965e43d4710288ba71080:refs/remotes/origin/main
+2026-08-15T18:11:10.4198375Z From https://github.com/lohith400/Video-analysis
+2026-08-15T18:11:10.4199427Z  * [new ref]         8b28610bc0c628ace24965e43d4710288ba71080 -> origin/main
+2026-08-15T18:11:10.4239441Z ##[endgroup]
+2026-08-15T18:11:10.4241134Z ##[group]Determining the checkout info
+2026-08-15T18:11:10.4243421Z ##[endgroup]
+2026-08-15T18:11:10.4249645Z [command]/usr/bin/git sparse-checkout disable
+2026-08-15T18:11:10.4305590Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-08-15T18:11:10.4340584Z ##[group]Checking out the ref
+2026-08-15T18:11:10.4345506Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-08-15T18:11:10.4656500Z Switched to a new branch 'main'
+2026-08-15T18:11:10.4660408Z branch 'main' set up to track 'origin/main'.
+2026-08-15T18:11:10.4667119Z ##[endgroup]
+2026-08-15T18:11:10.4710155Z [command]/usr/bin/git log -1 --format=%H
+2026-08-15T18:11:10.4736669Z 8b28610bc0c628ace24965e43d4710288ba71080
+2026-08-15T18:11:10.5034632Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-08-15T18:11:10.5038659Z ##[group]Run actions/setup-python@v5
+2026-08-15T18:11:10.5039294Z with:
+2026-08-15T18:11:10.5039715Z   python-version: 3.12
+2026-08-15T18:11:10.5040207Z   cache: pip
+2026-08-15T18:11:10.5040733Z   cache-dependency-path: backend/requirements.txt
+2026-08-15T18:11:10.5041738Z   check-latest: false
+2026-08-15T18:11:10.5046698Z   token: ***
+2026-08-15T18:11:10.5047157Z   update-environment: true
+2026-08-15T18:11:10.5047706Z   allow-prereleases: false
+2026-08-15T18:11:10.5048237Z   freethreaded: false
+2026-08-15T18:11:10.5048716Z ##[endgroup]
+2026-08-15T18:11:10.6397107Z ##[group]Installed versions
+2026-08-15T18:11:10.6500907Z (node:2316) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-08-15T18:11:10.6503558Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-08-15T18:11:10.6504595Z Successfully set up CPython (3.12.13)
+2026-08-15T18:11:10.6505641Z ##[endgroup]
+2026-08-15T18:11:10.6811170Z [command]/opt/hostedtoolcache/Python/3.12.13/x64/bin/pip cache dir
+2026-08-15T18:11:10.9716046Z /home/runner/.cache/pip
+2026-08-15T18:11:11.2552945Z Cache hit for: setup-python-Linux-x64-24.04-Ubuntu-python-3.12.13-pip-4b02102cd7e7ad76de3e291d423870a7b2084d8225c48bc0832049d7fdd82d05
+2026-08-15T18:11:11.2657244Z (node:2316) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-08-15T18:11:12.4993150Z Received 18219753 of 30802665 (59.1%), 17.4 MBs/sec
+2026-08-15T18:11:12.6242947Z Received 30802665 of 30802665 (100.0%), 26.1 MBs/sec
+2026-08-15T18:11:12.6243737Z Cache Size: ~29 MB (30802665 B)
+2026-08-15T18:11:12.6277310Z [command]/usr/bin/tar -xf /home/runner/work/_temp/5accdcb2-524b-470d-bdac-32681023a480/cache.tzst -P -C /home/runner/work/Video-analysis/Video-analysis --use-compress-program unzstd
+2026-08-15T18:11:12.6868287Z Cache restored successfully
+2026-08-15T18:11:12.6887473Z Cache restored from key: setup-python-Linux-x64-24.04-Ubuntu-python-3.12.13-pip-4b02102cd7e7ad76de3e291d423870a7b2084d8225c48bc0832049d7fdd82d05
+2026-08-15T18:11:12.7125735Z ##[group]Run pip install ruff pytest numpy
+2026-08-15T18:11:12.7126159Z [36;1mpip install ruff pytest numpy[0m
+2026-08-15T18:11:12.7170858Z shell: /usr/bin/bash -e {0}
+2026-08-15T18:11:12.7171148Z env:
+2026-08-15T18:11:12.7171731Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.13/x64
+2026-08-15T18:11:12.7172242Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.13/x64/lib/pkgconfig
+2026-08-15T18:11:12.7172681Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+2026-08-15T18:11:12.7173110Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+2026-08-15T18:11:12.7173514Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+2026-08-15T18:11:12.7173932Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.13/x64/lib
+2026-08-15T18:11:12.7174266Z ##[endgroup]
+2026-08-15T18:11:13.6462830Z Collecting ruff
+2026-08-15T18:11:13.6478648Z   Using cached ruff-0.16.3-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (26 kB)
+2026-08-15T18:11:13.6849685Z Collecting pytest
+2026-08-15T18:11:13.6863375Z   Using cached pytest-9.1.1-py3-none-any.whl.metadata (7.6 kB)
+2026-08-15T18:11:13.8732542Z Collecting numpy
+2026-08-15T18:11:13.8747534Z   Using cached numpy-2.5.2-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (6.6 kB)
+2026-08-15T18:11:13.8910389Z Collecting iniconfig>=1.0.1 (from pytest)
+2026-08-15T18:11:13.8923434Z   Using cached iniconfig-2.3.0-py3-none-any.whl.metadata (2.5 kB)
+2026-08-15T18:11:13.9114410Z Collecting packaging>=22 (from pytest)
+2026-08-15T18:11:13.9127334Z   Using cached packaging-26.3-py3-none-any.whl.metadata (3.5 kB)
+2026-08-15T18:11:13.9290843Z Collecting pluggy<2,>=1.5 (from pytest)
+2026-08-15T18:11:13.9303806Z   Using cached pluggy-1.6.0-py3-none-any.whl.metadata (4.8 kB)
+2026-08-15T18:11:13.9528645Z Collecting pygments>=2.7.2 (from pytest)
+2026-08-15T18:11:13.9541015Z   Using cached pygments-2.20.0-py3-none-any.whl.metadata (2.5 kB)
+2026-08-15T18:11:13.9580127Z Using cached ruff-0.16.3-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (11.1 MB)
+2026-08-15T18:11:13.9633831Z Using cached pytest-9.1.1-py3-none-any.whl (386 kB)
+2026-08-15T18:11:13.9647151Z Using cached pluggy-1.6.0-py3-none-any.whl (20 kB)
+2026-08-15T18:11:13.9659609Z Using cached numpy-2.5.2-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (16.7 MB)
+2026-08-15T18:11:13.9734201Z Using cached iniconfig-2.3.0-py3-none-any.whl (7.5 kB)
+2026-08-15T18:11:13.9746187Z Using cached packaging-26.3-py3-none-any.whl (129 kB)
+2026-08-15T18:11:13.9758645Z Using cached pygments-2.20.0-py3-none-any.whl (1.2 MB)
+2026-08-15T18:11:14.0730543Z Installing collected packages: ruff, pygments, pluggy, packaging, numpy, iniconfig, pytest
+2026-08-15T18:11:17.3539332Z 
+2026-08-15T18:11:17.3553819Z Successfully installed iniconfig-2.3.0 numpy-2.5.2 packaging-26.3 pluggy-1.6.0 pygments-2.20.0 pytest-9.1.1 ruff-0.16.3
+2026-08-15T18:11:17.4137247Z ##[group]Run ruff check . --output-format=github
+2026-08-15T18:11:17.4137642Z [36;1mruff check . --output-format=github[0m
+2026-08-15T18:11:17.4176734Z shell: /usr/bin/bash -e {0}
+2026-08-15T18:11:17.4176982Z env:
+2026-08-15T18:11:17.4177248Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.13/x64
+2026-08-15T18:11:17.4177699Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.13/x64/lib/pkgconfig
+2026-08-15T18:11:17.4178134Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+2026-08-15T18:11:17.4178514Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+2026-08-15T18:11:17.4178902Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+2026-08-15T18:11:17.4179306Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.13/x64/lib
+2026-08-15T18:11:17.4179630Z ##[endgroup]
+2026-08-15T18:11:17.4369162Z ##[group]Run pytest test_traffic_counter.py test_plate_utils.py test_helmet_logic.py test_geometry_utils.py -v
+2026-08-15T18:11:17.4369979Z [36;1mpytest test_traffic_counter.py test_plate_utils.py test_helmet_logic.py test_geometry_utils.py -v[0m
+2026-08-15T18:11:17.4406644Z shell: /usr/bin/bash -e {0}
+2026-08-15T18:11:17.4406886Z env:
+2026-08-15T18:11:17.4407153Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.13/x64
+2026-08-15T18:11:17.4407605Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.13/x64/lib/pkgconfig
+2026-08-15T18:11:17.4408051Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+2026-08-15T18:11:17.4408438Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+2026-08-15T18:11:17.4408825Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+2026-08-15T18:11:17.4409211Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.13/x64/lib
+2026-08-15T18:11:17.4409544Z ##[endgroup]
+2026-08-15T18:11:17.6957320Z ============================= test session starts ==============================
+2026-08-15T18:11:17.6958630Z platform linux -- Python 3.12.13, pytest-9.1.1, pluggy-1.6.0 -- /opt/hostedtoolcache/Python/3.12.13/x64/bin/python
+2026-08-15T18:11:17.6959734Z cachedir: .pytest_cache
+2026-08-15T18:11:17.6960436Z rootdir: /home/runner/work/Video-analysis/Video-analysis/backend
+2026-08-15T18:11:17.6961243Z configfile: pyproject.toml
+2026-08-15T18:11:17.7400642Z collecting ... collected 36 items
+2026-08-15T18:11:17.7401199Z 
+2026-08-15T18:11:17.7414248Z test_traffic_counter.py::TestTrafficCounter::test_active_class_voting_correction PASSED [  2%]
+2026-08-15T18:11:17.7423420Z test_traffic_counter.py::TestTrafficCounter::test_class_voting PASSED    [  5%]
+2026-08-15T18:11:17.7431806Z test_traffic_counter.py::TestTrafficCounter::test_line_intersection_negative PASSED [  8%]
+2026-08-15T18:11:17.7440393Z test_traffic_counter.py::TestTrafficCounter::test_line_intersection_parallel PASSED [ 11%]
+2026-08-15T18:11:17.7449177Z test_traffic_counter.py::TestTrafficCounter::test_line_intersection_positive PASSED [ 13%]
+2026-08-15T18:11:17.7460054Z test_traffic_counter.py::TestTrafficCounter::test_track_age_filter_and_double_counting PASSED [ 16%]
+2026-08-15T18:11:17.7469915Z test_plate_utils.py::TestPlateCleaning::test_clean_plate_passthrough PASSED [ 19%]
+2026-08-15T18:11:17.7478605Z test_plate_utils.py::TestPlateCleaning::test_corrects_common_state_code_confusions PASSED [ 22%]
+2026-08-15T18:11:17.7487548Z test_plate_utils.py::TestPlateCleaning::test_corrects_confused_digits_in_number_block PASSED [ 25%]
+2026-08-15T18:11:17.7496007Z test_plate_utils.py::TestPlateCleaning::test_indian_plate_regex_accepts_standard_format PASSED [ 27%]
+2026-08-15T18:11:17.7504365Z test_plate_utils.py::TestPlateCleaning::test_indian_plate_regex_rejects_malformed PASSED [ 30%]
+2026-08-15T18:11:17.7512364Z test_plate_utils.py::TestPlateCleaning::test_is_valid_plate_length_bounds PASSED [ 33%]
+2026-08-15T18:11:17.7520689Z test_plate_utils.py::TestPlateCleaning::test_rejects_invalid_state_code PASSED [ 36%]
+2026-08-15T18:11:17.7528933Z test_plate_utils.py::TestPlateCleaning::test_rejects_too_long PASSED     [ 38%]
+2026-08-15T18:11:17.7537371Z test_plate_utils.py::TestPlateCleaning::test_rejects_too_short PASSED    [ 41%]
+2026-08-15T18:11:17.7545980Z test_plate_utils.py::TestPlateCleaning::test_strips_non_alphanumeric_noise PASSED [ 44%]
+2026-08-15T18:11:17.7554753Z test_plate_utils.py::TestNMS::test_empty_input PASSED                    [ 47%]
+2026-08-15T18:11:17.8196679Z test_plate_utils.py::TestNMS::test_keeps_non_overlapping_boxes PASSED    [ 50%]
+2026-08-15T18:11:17.8251998Z test_plate_utils.py::TestNMS::test_keeps_single_box PASSED               [ 52%]
+2026-08-15T18:11:17.8282040Z test_plate_utils.py::TestNMS::test_suppresses_heavily_overlapping_lower_score_box PASSED [ 55%]
+2026-08-15T18:11:17.8312014Z test_helmet_logic.py::TestClassifyRiders::test_bare_head_class_counts_as_no_helmet PASSED [ 58%]
+2026-08-15T18:11:17.8342388Z test_helmet_logic.py::TestClassifyRiders::test_leftmost_person_is_always_rider_regardless_of_list_order PASSED [ 61%]
+2026-08-15T18:11:17.8372036Z test_helmet_logic.py::TestClassifyRiders::test_no_detections_returns_unknown_status PASSED [ 63%]
+2026-08-15T18:11:17.8373127Z test_helmet_logic.py::TestClassifyRiders::test_single_rider_with_helmet_no_violation PASSED [ 66%]
+2026-08-15T18:11:17.8402230Z test_helmet_logic.py::TestClassifyRiders::test_single_rider_without_helmet_flags_violation PASSED [ 69%]
+2026-08-15T18:11:17.8432105Z test_helmet_logic.py::TestClassifyRiders::test_third_and_later_detections_ignored PASSED [ 72%]
+2026-08-15T18:11:17.8462346Z test_helmet_logic.py::TestClassifyRiders::test_two_riders_both_without_helmet_flags_two_violations PASSED [ 75%]
+2026-08-15T18:11:17.8492221Z test_helmet_logic.py::TestClassifyRiders::test_violation_bbox_is_offset_by_vehicle_bbox PASSED [ 77%]
+2026-08-15T18:11:17.8493297Z test_geometry_utils.py::TestCalculateIoU::test_identical_boxes_iou_is_one PASSED [ 80%]
+2026-08-15T18:11:17.8552265Z test_geometry_utils.py::TestCalculateIoU::test_non_overlapping_boxes_iou_is_zero PASSED [ 83%]
+2026-08-15T18:11:17.8582078Z test_geometry_utils.py::TestCalculateIoU::test_partial_overlap PASSED    [ 86%]
+2026-08-15T18:11:17.8612106Z test_geometry_utils.py::TestCalculateIoU::test_zero_area_box_does_not_crash PASSED [ 88%]
+2026-08-15T18:11:17.8642221Z test_geometry_utils.py::TestIsChildByHeight::test_above_threshold_not_child PASSED [ 91%]
+2026-08-15T18:11:17.8672108Z test_geometry_utils.py::TestIsChildByHeight::test_below_threshold_is_child PASSED [ 94%]
+2026-08-15T18:11:17.8702131Z test_geometry_utils.py::TestIsChildByHeight::test_exactly_at_threshold_not_child PASSED [ 97%]
+2026-08-15T18:11:17.8722424Z test_geometry_utils.py::TestIsChildByHeight::test_no_avg_adult_height_yet_never_flags_child PASSED [100%]
+2026-08-15T18:11:17.8723251Z 
+2026-08-15T18:11:17.8723531Z ============================== 36 passed in 0.14s ==============================
+2026-08-15T18:11:17.8867631Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-08-15T18:11:17.8868886Z Post job cleanup.
+2026-08-15T18:11:18.0032906Z Cache hit occurred on the primary key setup-python-Linux-x64-24.04-Ubuntu-python-3.12.13-pip-4b02102cd7e7ad76de3e291d423870a7b2084d8225c48bc0832049d7fdd82d05, not saving cache.
+2026-08-15T18:11:18.0034715Z (node:2390) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-08-15T18:11:18.0035452Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-08-15T18:11:18.0178218Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-08-15T18:11:18.0179484Z Post job cleanup.
+2026-08-15T18:11:18.0986038Z [command]/usr/bin/git version
+2026-08-15T18:11:18.1029632Z git version 2.54.0
+2026-08-15T18:11:18.1074899Z Temporarily overriding HOME='/home/runner/work/_temp/2747acb3-cfb3-4cb4-9bf9-5bedcf0a18d1' before making global git config changes
+2026-08-15T18:11:18.1076018Z Adding repository directory to the temporary git global config as a safe directory
+2026-08-15T18:11:18.1092676Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Video-analysis/Video-analysis
+2026-08-15T18:11:18.1119469Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-08-15T18:11:18.1154991Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-08-15T18:11:18.1410580Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-08-15T18:11:18.1436094Z http.https://github.com/.extraheader
+2026-08-15T18:11:18.1448803Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-08-15T18:11:18.1484714Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-08-15T18:11:18.1759927Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-08-15T18:11:18.1796707Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-08-15T18:11:18.2180284Z Cleaning up orphan processes
+2026-08-15T18:11:18.2498986Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

@@ -1,0 +1,35 @@
+﻿2026-08-15T18:15:56.0392996Z ##[group]Run pip install ruff pytest numpy
+2026-08-15T18:15:56.0393462Z [36;1mpip install ruff pytest numpy[0m
+2026-08-15T18:15:56.0439443Z shell: /usr/bin/bash -e {0}
+2026-08-15T18:15:56.0439950Z env:
+2026-08-15T18:15:56.0440247Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.13/x64
+2026-08-15T18:15:56.0440729Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.13/x64/lib/pkgconfig
+2026-08-15T18:15:56.0441219Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+2026-08-15T18:15:56.0441627Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+2026-08-15T18:15:56.0442050Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+2026-08-15T18:15:56.0442466Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.13/x64/lib
+2026-08-15T18:15:56.0442816Z ##[endgroup]
+2026-08-15T18:15:57.9093757Z Collecting ruff
+2026-08-15T18:15:57.9111088Z   Using cached ruff-0.16.3-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (26 kB)
+2026-08-15T18:15:57.9494073Z Collecting pytest
+2026-08-15T18:15:57.9509188Z   Using cached pytest-9.1.1-py3-none-any.whl.metadata (7.6 kB)
+2026-08-15T18:15:58.1478254Z Collecting numpy
+2026-08-15T18:15:58.1494215Z   Using cached numpy-2.5.2-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (6.6 kB)
+2026-08-15T18:15:58.1670673Z Collecting iniconfig>=1.0.1 (from pytest)
+2026-08-15T18:15:58.1684305Z   Using cached iniconfig-2.3.0-py3-none-any.whl.metadata (2.5 kB)
+2026-08-15T18:15:58.1887085Z Collecting packaging>=22 (from pytest)
+2026-08-15T18:15:58.1901977Z   Using cached packaging-26.3-py3-none-any.whl.metadata (3.5 kB)
+2026-08-15T18:15:58.2079279Z Collecting pluggy<2,>=1.5 (from pytest)
+2026-08-15T18:15:58.2093406Z   Using cached pluggy-1.6.0-py3-none-any.whl.metadata (4.8 kB)
+2026-08-15T18:15:58.2324948Z Collecting pygments>=2.7.2 (from pytest)
+2026-08-15T18:15:58.2339950Z   Using cached pygments-2.20.0-py3-none-any.whl.metadata (2.5 kB)
+2026-08-15T18:15:58.2385680Z Using cached ruff-0.16.3-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (11.1 MB)
+2026-08-15T18:15:58.2447165Z Using cached pytest-9.1.1-py3-none-any.whl (386 kB)
+2026-08-15T18:15:58.2469947Z Using cached pluggy-1.6.0-py3-none-any.whl (20 kB)
+2026-08-15T18:15:58.2475650Z Using cached numpy-2.5.2-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (16.7 MB)
+2026-08-15T18:15:58.2556439Z Using cached iniconfig-2.3.0-py3-none-any.whl (7.5 kB)
+2026-08-15T18:15:58.2569464Z Using cached packaging-26.3-py3-none-any.whl (129 kB)
+2026-08-15T18:15:58.2582492Z Using cached pygments-2.20.0-py3-none-any.whl (1.2 MB)
+2026-08-15T18:15:58.4953213Z Installing collected packages: ruff, pygments, pluggy, packaging, numpy, iniconfig, pytest
+2026-08-15T18:16:01.9478194Z 
+2026-08-15T18:16:01.9493449Z Successfully installed iniconfig-2.3.0 numpy-2.5.2 packaging-26.3 pluggy-1.6.0 pygments-2.20.0 pytest-9.1.1 ruff-0.16.3

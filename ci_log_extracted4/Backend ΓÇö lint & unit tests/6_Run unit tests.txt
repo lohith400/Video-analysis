@@ -1,0 +1,56 @@
+﻿2026-08-15T18:14:37.1231200Z ##[group]Run pytest test_traffic_counter.py test_plate_utils.py test_helmet_logic.py test_geometry_utils.py -v
+2026-08-15T18:14:37.1232059Z [36;1mpytest test_traffic_counter.py test_plate_utils.py test_helmet_logic.py test_geometry_utils.py -v[0m
+2026-08-15T18:14:37.1271319Z shell: /usr/bin/bash -e {0}
+2026-08-15T18:14:37.1271587Z env:
+2026-08-15T18:14:37.1271868Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.13/x64
+2026-08-15T18:14:37.1272351Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.13/x64/lib/pkgconfig
+2026-08-15T18:14:37.1272831Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+2026-08-15T18:14:37.1273600Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+2026-08-15T18:14:37.1274051Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+2026-08-15T18:14:37.1274477Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.13/x64/lib
+2026-08-15T18:14:37.1274860Z ##[endgroup]
+2026-08-15T18:14:37.3931255Z ============================= test session starts ==============================
+2026-08-15T18:14:37.3932577Z platform linux -- Python 3.12.13, pytest-9.1.1, pluggy-1.6.0 -- /opt/hostedtoolcache/Python/3.12.13/x64/bin/python
+2026-08-15T18:14:37.3934042Z cachedir: .pytest_cache
+2026-08-15T18:14:37.3934636Z rootdir: /home/runner/work/Video-analysis/Video-analysis/backend
+2026-08-15T18:14:37.3935318Z configfile: pyproject.toml
+2026-08-15T18:14:37.4396304Z collecting ... collected 36 items
+2026-08-15T18:14:37.4396764Z 
+2026-08-15T18:14:37.4409133Z test_traffic_counter.py::TestTrafficCounter::test_active_class_voting_correction PASSED [  2%]
+2026-08-15T18:14:37.4417881Z test_traffic_counter.py::TestTrafficCounter::test_class_voting PASSED    [  5%]
+2026-08-15T18:14:37.4425990Z test_traffic_counter.py::TestTrafficCounter::test_line_intersection_negative PASSED [  8%]
+2026-08-15T18:14:37.4433929Z test_traffic_counter.py::TestTrafficCounter::test_line_intersection_parallel PASSED [ 11%]
+2026-08-15T18:14:37.4442041Z test_traffic_counter.py::TestTrafficCounter::test_line_intersection_positive PASSED [ 13%]
+2026-08-15T18:14:37.4452274Z test_traffic_counter.py::TestTrafficCounter::test_track_age_filter_and_double_counting PASSED [ 16%]
+2026-08-15T18:14:37.4462245Z test_plate_utils.py::TestPlateCleaning::test_clean_plate_passthrough PASSED [ 19%]
+2026-08-15T18:14:37.4470606Z test_plate_utils.py::TestPlateCleaning::test_corrects_common_state_code_confusions PASSED [ 22%]
+2026-08-15T18:14:37.4478815Z test_plate_utils.py::TestPlateCleaning::test_corrects_confused_digits_in_number_block PASSED [ 25%]
+2026-08-15T18:14:37.4486697Z test_plate_utils.py::TestPlateCleaning::test_indian_plate_regex_accepts_standard_format PASSED [ 27%]
+2026-08-15T18:14:37.4494572Z test_plate_utils.py::TestPlateCleaning::test_indian_plate_regex_rejects_malformed PASSED [ 30%]
+2026-08-15T18:14:37.4502108Z test_plate_utils.py::TestPlateCleaning::test_is_valid_plate_length_bounds PASSED [ 33%]
+2026-08-15T18:14:37.4510012Z test_plate_utils.py::TestPlateCleaning::test_rejects_invalid_state_code PASSED [ 36%]
+2026-08-15T18:14:37.4518013Z test_plate_utils.py::TestPlateCleaning::test_rejects_too_long PASSED     [ 38%]
+2026-08-15T18:14:37.4525703Z test_plate_utils.py::TestPlateCleaning::test_rejects_too_short PASSED    [ 41%]
+2026-08-15T18:14:37.4533633Z test_plate_utils.py::TestPlateCleaning::test_strips_non_alphanumeric_noise PASSED [ 44%]
+2026-08-15T18:14:37.4541927Z test_plate_utils.py::TestNMS::test_empty_input PASSED                    [ 47%]
+2026-08-15T18:14:37.5394882Z test_plate_utils.py::TestNMS::test_keeps_non_overlapping_boxes PASSED    [ 50%]
+2026-08-15T18:14:37.5424072Z test_plate_utils.py::TestNMS::test_keeps_single_box PASSED               [ 52%]
+2026-08-15T18:14:37.5444282Z test_plate_utils.py::TestNMS::test_suppresses_heavily_overlapping_lower_score_box PASSED [ 55%]
+2026-08-15T18:14:37.5474239Z test_helmet_logic.py::TestClassifyRiders::test_bare_head_class_counts_as_no_helmet PASSED [ 58%]
+2026-08-15T18:14:37.5484474Z test_helmet_logic.py::TestClassifyRiders::test_leftmost_person_is_always_rider_regardless_of_list_order PASSED [ 61%]
+2026-08-15T18:14:37.5514227Z test_helmet_logic.py::TestClassifyRiders::test_no_detections_returns_unknown_status PASSED [ 63%]
+2026-08-15T18:14:37.5534215Z test_helmet_logic.py::TestClassifyRiders::test_single_rider_with_helmet_no_violation PASSED [ 66%]
+2026-08-15T18:14:37.5564252Z test_helmet_logic.py::TestClassifyRiders::test_single_rider_without_helmet_flags_violation PASSED [ 69%]
+2026-08-15T18:14:37.5574275Z test_helmet_logic.py::TestClassifyRiders::test_third_and_later_detections_ignored PASSED [ 72%]
+2026-08-15T18:14:37.5614059Z test_helmet_logic.py::TestClassifyRiders::test_two_riders_both_without_helmet_flags_two_violations PASSED [ 75%]
+2026-08-15T18:14:37.5624315Z test_helmet_logic.py::TestClassifyRiders::test_violation_bbox_is_offset_by_vehicle_bbox PASSED [ 77%]
+2026-08-15T18:14:37.5653987Z test_geometry_utils.py::TestCalculateIoU::test_identical_boxes_iou_is_one PASSED [ 80%]
+2026-08-15T18:14:37.5664122Z test_geometry_utils.py::TestCalculateIoU::test_non_overlapping_boxes_iou_is_zero PASSED [ 83%]
+2026-08-15T18:14:37.5684024Z test_geometry_utils.py::TestCalculateIoU::test_partial_overlap PASSED    [ 86%]
+2026-08-15T18:14:37.5709985Z test_geometry_utils.py::TestCalculateIoU::test_zero_area_box_does_not_crash PASSED [ 88%]
+2026-08-15T18:14:37.5711146Z test_geometry_utils.py::TestIsChildByHeight::test_above_threshold_not_child PASSED [ 91%]
+2026-08-15T18:14:37.5711982Z test_geometry_utils.py::TestIsChildByHeight::test_below_threshold_is_child PASSED [ 94%]
+2026-08-15T18:14:37.5712817Z test_geometry_utils.py::TestIsChildByHeight::test_exactly_at_threshold_not_child PASSED [ 97%]
+2026-08-15T18:14:37.5735559Z test_geometry_utils.py::TestIsChildByHeight::test_no_avg_adult_height_yet_never_flags_child PASSED [100%]
+2026-08-15T18:14:37.5736106Z 
+2026-08-15T18:14:37.5736309Z ============================== 36 passed in 0.17s ==============================

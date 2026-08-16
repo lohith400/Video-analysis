@@ -1,0 +1,20 @@
+﻿2026-08-15T18:14:33.0333296Z ##[group]Run npm install --ignore-scripts
+2026-08-15T18:14:33.0333766Z [36;1mnpm install --ignore-scripts[0m
+2026-08-15T18:14:33.0381379Z shell: /usr/bin/bash -e {0}
+2026-08-15T18:14:33.0381701Z ##[endgroup]
+2026-08-15T18:14:36.8636870Z npm warn deprecated recharts@2.15.4: 1.x and 2.x branches are no longer active. Bump to Recharts v3 to receive latest features and bugfixes. See https://github.com/recharts/recharts/wiki/3.0-migration-guide
+2026-08-15T18:14:37.5349471Z 
+2026-08-15T18:14:37.5350428Z added 197 packages, and audited 198 packages in 4s
+2026-08-15T18:14:37.5351057Z 
+2026-08-15T18:14:37.5351341Z 30 packages are looking for funding
+2026-08-15T18:14:37.5351887Z   run `npm fund` for details
+2026-08-15T18:14:37.5677631Z 
+2026-08-15T18:14:37.5678799Z 4 vulnerabilities (3 moderate, 1 high)
+2026-08-15T18:14:37.5679310Z 
+2026-08-15T18:14:37.5679841Z To address issues that do not require attention, run:
+2026-08-15T18:14:37.5680503Z   npm audit fix
+2026-08-15T18:14:37.5680771Z 
+2026-08-15T18:14:37.5681140Z To address all issues (including breaking changes), run:
+2026-08-15T18:14:37.5681850Z   npm audit fix --force
+2026-08-15T18:14:37.5682111Z 
+2026-08-15T18:14:37.5682330Z Run `npm audit` for details.

@@ -1,0 +1,11 @@
+﻿2026-08-15T18:11:17.4137235Z ##[group]Run ruff check . --output-format=github
+2026-08-15T18:11:17.4137639Z [36;1mruff check . --output-format=github[0m
+2026-08-15T18:11:17.4176728Z shell: /usr/bin/bash -e {0}
+2026-08-15T18:11:17.4176979Z env:
+2026-08-15T18:11:17.4177245Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.13/x64
+2026-08-15T18:11:17.4177697Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.13/x64/lib/pkgconfig
+2026-08-15T18:11:17.4178130Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+2026-08-15T18:11:17.4178512Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+2026-08-15T18:11:17.4178899Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+2026-08-15T18:11:17.4179304Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.13/x64/lib
+2026-08-15T18:11:17.4179627Z ##[endgroup]

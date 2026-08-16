@@ -1,0 +1,32 @@
+﻿2026-08-15T18:11:08.8742047Z Current runner version: '2.336.0'
+2026-08-15T18:11:08.8766977Z ##[group]Runner Image Provisioner
+2026-08-15T18:11:08.8767873Z Hosted Compute Agent
+2026-08-15T18:11:08.8768510Z Version: 20260729.566
+2026-08-15T18:11:08.8769185Z Commit: cf7153fe6e25b664e8693c24944bf2b00355d109
+2026-08-15T18:11:08.8769895Z Build Date: 2026-07-29T19:17:02Z
+2026-08-15T18:11:08.8770622Z Worker ID: {c944e220-f729-4151-8c4e-3694360e1f8c}
+2026-08-15T18:11:08.8771319Z Azure Region: westus3
+2026-08-15T18:11:08.8772121Z ##[endgroup]
+2026-08-15T18:11:08.8773691Z ##[group]Operating System
+2026-08-15T18:11:08.8774381Z Ubuntu
+2026-08-15T18:11:08.8774954Z 24.04.4
+2026-08-15T18:11:08.8775475Z LTS
+2026-08-15T18:11:08.8775984Z ##[endgroup]
+2026-08-15T18:11:08.8776563Z ##[group]Runner Image
+2026-08-15T18:11:08.8777188Z Image: ubuntu-24.04
+2026-08-15T18:11:08.8777740Z Version: 20260810.271.1
+2026-08-15T18:11:08.8778875Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260810.271/images/ubuntu/Ubuntu2404-Readme.md
+2026-08-15T18:11:08.8780675Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260810.271
+2026-08-15T18:11:08.8781897Z ##[endgroup]
+2026-08-15T18:11:08.8783092Z ##[group]GITHUB_TOKEN Permissions
+2026-08-15T18:11:08.8784978Z Contents: read
+2026-08-15T18:11:08.8785622Z Metadata: read
+2026-08-15T18:11:08.8786332Z Packages: read
+2026-08-15T18:11:08.8786896Z ##[endgroup]
+2026-08-15T18:11:08.8789287Z Secret source: Actions
+2026-08-15T18:11:08.8790357Z Prepare workflow directory
+2026-08-15T18:11:08.9205842Z Prepare all required actions
+2026-08-15T18:11:08.9255345Z Getting action download info
+2026-08-15T18:11:09.2104855Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-08-15T18:11:09.3413149Z Download action repository 'actions/setup-python@v5' (SHA:a26af69be951a213d495a4c3e4e4022e16d87065)
+2026-08-15T18:11:09.5222933Z Complete job name: Backend ΓÇö lint & unit tests

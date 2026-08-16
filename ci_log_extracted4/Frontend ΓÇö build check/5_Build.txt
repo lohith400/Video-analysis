@@ -1,0 +1,15 @@
+﻿2026-08-15T18:14:37.5907660Z ##[group]Run npx vite build
+2026-08-15T18:14:37.5907978Z [36;1mnpx vite build[0m
+2026-08-15T18:14:37.5953451Z shell: /usr/bin/bash -e {0}
+2026-08-15T18:14:37.5953741Z env:
+2026-08-15T18:14:37.5953982Z   VITE_API_URL: http://localhost:8000
+2026-08-15T18:14:37.5954264Z ##[endgroup]
+2026-08-15T18:14:37.8968587Z npm error code ENOENT
+2026-08-15T18:14:37.8973018Z npm error syscall spawn cmd.exe
+2026-08-15T18:14:37.8973758Z npm error path /home/runner/work/Video-analysis/Video-analysis/frontend
+2026-08-15T18:14:37.8979689Z npm error errno -2
+2026-08-15T18:14:37.8980193Z npm error enoent spawn cmd.exe ENOENT
+2026-08-15T18:14:37.8981033Z npm error enoent This is related to npm not being able to find a file.
+2026-08-15T18:14:37.8981732Z npm error enoent
+2026-08-15T18:14:37.8999898Z npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2026-08-15T18_14_37_665Z-debug-0.log
+2026-08-15T18:14:37.9063286Z ##[error]Process completed with exit code 254.

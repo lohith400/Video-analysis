@@ -1,0 +1,32 @@
+﻿2026-08-15T18:15:48.8869782Z Current runner version: '2.336.0'
+2026-08-15T18:15:48.8896525Z ##[group]Runner Image Provisioner
+2026-08-15T18:15:48.8897500Z Hosted Compute Agent
+2026-08-15T18:15:48.8898074Z Version: 20260729.566
+2026-08-15T18:15:48.8898735Z Commit: cf7153fe6e25b664e8693c24944bf2b00355d109
+2026-08-15T18:15:48.8899465Z Build Date: 2026-07-29T19:17:02Z
+2026-08-15T18:15:48.8900466Z Worker ID: {57622c84-9ff4-466b-af05-52cea74886ac}
+2026-08-15T18:15:48.8901247Z Azure Region: westus
+2026-08-15T18:15:48.8901800Z ##[endgroup]
+2026-08-15T18:15:48.8903318Z ##[group]Operating System
+2026-08-15T18:15:48.8904112Z Ubuntu
+2026-08-15T18:15:48.8904715Z 24.04.4
+2026-08-15T18:15:48.8905241Z LTS
+2026-08-15T18:15:48.8905755Z ##[endgroup]
+2026-08-15T18:15:48.8906282Z ##[group]Runner Image
+2026-08-15T18:15:48.8906953Z Image: ubuntu-24.04
+2026-08-15T18:15:48.8907528Z Version: 20260810.271.1
+2026-08-15T18:15:48.8908592Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260810.271/images/ubuntu/Ubuntu2404-Readme.md
+2026-08-15T18:15:48.8910619Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260810.271
+2026-08-15T18:15:48.8911620Z ##[endgroup]
+2026-08-15T18:15:48.8912864Z ##[group]GITHUB_TOKEN Permissions
+2026-08-15T18:15:48.8914847Z Contents: read
+2026-08-15T18:15:48.8915448Z Metadata: read
+2026-08-15T18:15:48.8915980Z Packages: read
+2026-08-15T18:15:48.8916658Z ##[endgroup]
+2026-08-15T18:15:48.8918806Z Secret source: Actions
+2026-08-15T18:15:48.8920610Z Prepare workflow directory
+2026-08-15T18:15:48.9340920Z Prepare all required actions
+2026-08-15T18:15:48.9392068Z Getting action download info
+2026-08-15T18:15:49.2902655Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-08-15T18:15:49.9107981Z Download action repository 'actions/setup-python@v5' (SHA:a26af69be951a213d495a4c3e4e4022e16d87065)
+2026-08-15T18:15:50.1571499Z Complete job name: Backend ΓÇö lint & unit tests

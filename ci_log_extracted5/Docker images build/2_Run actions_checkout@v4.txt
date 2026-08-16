@@ -1,0 +1,74 @@
+﻿2026-08-15T18:16:23.3889021Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-08-15T18:16:23.3898757Z ##[group]Run actions/checkout@v4
+2026-08-15T18:16:23.3899480Z with:
+2026-08-15T18:16:23.3899947Z   repository: lohith400/Video-analysis
+2026-08-15T18:16:23.3904394Z   token: ***
+2026-08-15T18:16:23.3904850Z   ssh-strict: true
+2026-08-15T18:16:23.3905295Z   ssh-user: git
+2026-08-15T18:16:23.3905744Z   persist-credentials: true
+2026-08-15T18:16:23.3906225Z   clean: true
+2026-08-15T18:16:23.3906672Z   sparse-checkout-cone-mode: true
+2026-08-15T18:16:23.3907185Z   fetch-depth: 1
+2026-08-15T18:16:23.3907605Z   fetch-tags: false
+2026-08-15T18:16:23.3908037Z   show-progress: true
+2026-08-15T18:16:23.3908479Z   lfs: false
+2026-08-15T18:16:23.3908891Z   submodules: false
+2026-08-15T18:16:23.3909387Z   set-safe-directory: true
+2026-08-15T18:16:23.3909879Z   allow-unsafe-pr-checkout: false
+2026-08-15T18:16:23.3910581Z ##[endgroup]
+2026-08-15T18:16:23.4981064Z Syncing repository: lohith400/Video-analysis
+2026-08-15T18:16:23.4984093Z ##[group]Getting Git version info
+2026-08-15T18:16:23.4985315Z Working directory is '/home/runner/work/Video-analysis/Video-analysis'
+2026-08-15T18:16:23.4987112Z [command]/usr/bin/git version
+2026-08-15T18:16:23.5023708Z git version 2.54.0
+2026-08-15T18:16:23.5044621Z ##[endgroup]
+2026-08-15T18:16:23.5069612Z Temporarily overriding HOME='/home/runner/work/_temp/dee59685-ea0d-4a07-8664-23bc28f6cda0' before making global git config changes
+2026-08-15T18:16:23.5071005Z Adding repository directory to the temporary git global config as a safe directory
+2026-08-15T18:16:23.5072244Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Video-analysis/Video-analysis
+2026-08-15T18:16:23.5118692Z Deleting the contents of '/home/runner/work/Video-analysis/Video-analysis'
+2026-08-15T18:16:23.5123540Z ##[group]Initializing the repository
+2026-08-15T18:16:23.5130240Z [command]/usr/bin/git init /home/runner/work/Video-analysis/Video-analysis
+2026-08-15T18:16:23.5216088Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-08-15T18:16:23.5218346Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-08-15T18:16:23.5220054Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-08-15T18:16:23.5221893Z hint: call:
+2026-08-15T18:16:23.5222934Z hint:
+2026-08-15T18:16:23.5224870Z hint: 	git config --global init.defaultBranch <name>
+2026-08-15T18:16:23.5226107Z hint:
+2026-08-15T18:16:23.5227254Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-08-15T18:16:23.5228960Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-08-15T18:16:23.5230403Z hint:
+2026-08-15T18:16:23.5231525Z hint: 	git branch -m <name>
+2026-08-15T18:16:23.5232743Z hint:
+2026-08-15T18:16:23.5233994Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-08-15T18:16:23.5236113Z Initialized empty Git repository in /home/runner/work/Video-analysis/Video-analysis/.git/
+2026-08-15T18:16:23.5239603Z [command]/usr/bin/git remote add origin https://github.com/lohith400/Video-analysis
+2026-08-15T18:16:23.5270793Z ##[endgroup]
+2026-08-15T18:16:23.5272155Z ##[group]Disabling automatic garbage collection
+2026-08-15T18:16:23.5274471Z [command]/usr/bin/git config --local gc.auto 0
+2026-08-15T18:16:23.5309458Z ##[endgroup]
+2026-08-15T18:16:23.5311212Z ##[group]Setting up auth
+2026-08-15T18:16:23.5317331Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-08-15T18:16:23.5355731Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-08-15T18:16:23.5717663Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-08-15T18:16:23.5765468Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-08-15T18:16:23.6029635Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-08-15T18:16:23.6070834Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-08-15T18:16:23.6321199Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-08-15T18:16:23.6365381Z ##[endgroup]
+2026-08-15T18:16:23.6366279Z ##[group]Fetching the repository
+2026-08-15T18:16:23.6375039Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +a0f5bbe339787603dce4d69fff292866f1b8e74a:refs/remotes/origin/main
+2026-08-15T18:16:23.9286339Z From https://github.com/lohith400/Video-analysis
+2026-08-15T18:16:23.9288012Z  * [new ref]         a0f5bbe339787603dce4d69fff292866f1b8e74a -> origin/main
+2026-08-15T18:16:23.9320341Z ##[endgroup]
+2026-08-15T18:16:23.9321699Z ##[group]Determining the checkout info
+2026-08-15T18:16:23.9323610Z ##[endgroup]
+2026-08-15T18:16:23.9330335Z [command]/usr/bin/git sparse-checkout disable
+2026-08-15T18:16:23.9380931Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-08-15T18:16:23.9420071Z ##[group]Checking out the ref
+2026-08-15T18:16:23.9421151Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-08-15T18:16:23.9731255Z Switched to a new branch 'main'
+2026-08-15T18:16:23.9732599Z branch 'main' set up to track 'origin/main'.
+2026-08-15T18:16:23.9740011Z ##[endgroup]
+2026-08-15T18:16:23.9798719Z [command]/usr/bin/git log -1 --format=%H
+2026-08-15T18:16:23.9829864Z a0f5bbe339787603dce4d69fff292866f1b8e74a

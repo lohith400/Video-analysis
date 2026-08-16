@@ -1,0 +1,162 @@
+﻿2026-08-15T18:11:09.8861132Z Current runner version: '2.336.0'
+2026-08-15T18:11:09.8887063Z ##[group]Runner Image Provisioner
+2026-08-15T18:11:09.8888164Z Hosted Compute Agent
+2026-08-15T18:11:09.8888771Z Version: 20260729.566
+2026-08-15T18:11:09.8889576Z Commit: cf7153fe6e25b664e8693c24944bf2b00355d109
+2026-08-15T18:11:09.8890670Z Build Date: 2026-07-29T19:17:02Z
+2026-08-15T18:11:09.8891390Z Worker ID: {6cbd5b12-3b77-4ed1-8229-0bfdb704a1d7}
+2026-08-15T18:11:09.8892258Z Azure Region: westcentralus
+2026-08-15T18:11:09.8892875Z ##[endgroup]
+2026-08-15T18:11:09.8894477Z ##[group]Operating System
+2026-08-15T18:11:09.8895152Z Ubuntu
+2026-08-15T18:11:09.8895664Z 24.04.4
+2026-08-15T18:11:09.8896258Z LTS
+2026-08-15T18:11:09.8896820Z ##[endgroup]
+2026-08-15T18:11:09.8897743Z ##[group]Runner Image
+2026-08-15T18:11:09.8898456Z Image: ubuntu-24.04
+2026-08-15T18:11:09.8899044Z Version: 20260810.271.1
+2026-08-15T18:11:09.8900388Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260810.271/images/ubuntu/Ubuntu2404-Readme.md
+2026-08-15T18:11:09.8901947Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260810.271
+2026-08-15T18:11:09.8902972Z ##[endgroup]
+2026-08-15T18:11:09.8904173Z ##[group]GITHUB_TOKEN Permissions
+2026-08-15T18:11:09.8906580Z Contents: read
+2026-08-15T18:11:09.8907442Z Metadata: read
+2026-08-15T18:11:09.8908009Z Packages: read
+2026-08-15T18:11:09.8908680Z ##[endgroup]
+2026-08-15T18:11:09.8910863Z Secret source: Actions
+2026-08-15T18:11:09.8912518Z Prepare workflow directory
+2026-08-15T18:11:09.9338466Z Prepare all required actions
+2026-08-15T18:11:09.9387439Z Getting action download info
+2026-08-15T18:11:10.2182026Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-08-15T18:11:10.3713741Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+2026-08-15T18:11:10.6192105Z Complete job name: Frontend ΓÇö build check
+2026-08-15T18:11:10.6972448Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-08-15T18:11:10.6981576Z ##[group]Run actions/checkout@v4
+2026-08-15T18:11:10.6982414Z with:
+2026-08-15T18:11:10.6982887Z   repository: lohith400/Video-analysis
+2026-08-15T18:11:10.6987156Z   token: ***
+2026-08-15T18:11:10.6987624Z   ssh-strict: true
+2026-08-15T18:11:10.6988079Z   ssh-user: git
+2026-08-15T18:11:10.6988545Z   persist-credentials: true
+2026-08-15T18:11:10.6989063Z   clean: true
+2026-08-15T18:11:10.6989518Z   sparse-checkout-cone-mode: true
+2026-08-15T18:11:10.6990065Z   fetch-depth: 1
+2026-08-15T18:11:10.6990507Z   fetch-tags: false
+2026-08-15T18:11:10.6990965Z   show-progress: true
+2026-08-15T18:11:10.6991426Z   lfs: false
+2026-08-15T18:11:10.6991895Z   submodules: false
+2026-08-15T18:11:10.6992366Z   set-safe-directory: true
+2026-08-15T18:11:10.6992900Z   allow-unsafe-pr-checkout: false
+2026-08-15T18:11:10.6993682Z ##[endgroup]
+2026-08-15T18:11:10.8060969Z Syncing repository: lohith400/Video-analysis
+2026-08-15T18:11:10.8063199Z ##[group]Getting Git version info
+2026-08-15T18:11:10.8064067Z Working directory is '/home/runner/work/Video-analysis/Video-analysis'
+2026-08-15T18:11:10.8065181Z [command]/usr/bin/git version
+2026-08-15T18:11:10.8144258Z git version 2.54.0
+2026-08-15T18:11:10.8203309Z ##[endgroup]
+2026-08-15T18:11:10.8220792Z Temporarily overriding HOME='/home/runner/work/_temp/a4596259-bc32-4fa8-8abd-abe549e4254d' before making global git config changes
+2026-08-15T18:11:10.8223056Z Adding repository directory to the temporary git global config as a safe directory
+2026-08-15T18:11:10.8229074Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Video-analysis/Video-analysis
+2026-08-15T18:11:10.8284238Z Deleting the contents of '/home/runner/work/Video-analysis/Video-analysis'
+2026-08-15T18:11:10.8287973Z ##[group]Initializing the repository
+2026-08-15T18:11:10.8293837Z [command]/usr/bin/git init /home/runner/work/Video-analysis/Video-analysis
+2026-08-15T18:11:10.8409586Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-08-15T18:11:10.8410725Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-08-15T18:11:10.8413933Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-08-15T18:11:10.8415683Z hint: call:
+2026-08-15T18:11:10.8416449Z hint:
+2026-08-15T18:11:10.8417726Z hint: 	git config --global init.defaultBranch <name>
+2026-08-15T18:11:10.8418783Z hint:
+2026-08-15T18:11:10.8419807Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-08-15T18:11:10.8421521Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-08-15T18:11:10.8422762Z hint:
+2026-08-15T18:11:10.8423490Z hint: 	git branch -m <name>
+2026-08-15T18:11:10.8424256Z hint:
+2026-08-15T18:11:10.8425374Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-08-15T18:11:10.8427709Z Initialized empty Git repository in /home/runner/work/Video-analysis/Video-analysis/.git/
+2026-08-15T18:11:10.8430917Z [command]/usr/bin/git remote add origin https://github.com/lohith400/Video-analysis
+2026-08-15T18:11:10.8478382Z ##[endgroup]
+2026-08-15T18:11:10.8479668Z ##[group]Disabling automatic garbage collection
+2026-08-15T18:11:10.8483150Z [command]/usr/bin/git config --local gc.auto 0
+2026-08-15T18:11:10.8531025Z ##[endgroup]
+2026-08-15T18:11:10.8532330Z ##[group]Setting up auth
+2026-08-15T18:11:10.8533556Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-08-15T18:11:10.8566449Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-08-15T18:11:10.8969612Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-08-15T18:11:10.9010835Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-08-15T18:11:10.9285796Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-08-15T18:11:10.9328655Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-08-15T18:11:10.9590500Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-08-15T18:11:10.9636096Z ##[endgroup]
+2026-08-15T18:11:10.9637355Z ##[group]Fetching the repository
+2026-08-15T18:11:10.9651620Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +8b28610bc0c628ace24965e43d4710288ba71080:refs/remotes/origin/main
+2026-08-15T18:11:11.7479060Z From https://github.com/lohith400/Video-analysis
+2026-08-15T18:11:11.7481184Z  * [new ref]         8b28610bc0c628ace24965e43d4710288ba71080 -> origin/main
+2026-08-15T18:11:11.7524083Z ##[endgroup]
+2026-08-15T18:11:11.7525889Z ##[group]Determining the checkout info
+2026-08-15T18:11:11.7528149Z ##[endgroup]
+2026-08-15T18:11:11.7535314Z [command]/usr/bin/git sparse-checkout disable
+2026-08-15T18:11:11.7593433Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-08-15T18:11:11.7630816Z ##[group]Checking out the ref
+2026-08-15T18:11:11.7635800Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-08-15T18:11:11.7958647Z Switched to a new branch 'main'
+2026-08-15T18:11:11.7961168Z branch 'main' set up to track 'origin/main'.
+2026-08-15T18:11:11.7968792Z ##[endgroup]
+2026-08-15T18:11:11.8017407Z [command]/usr/bin/git log -1 --format=%H
+2026-08-15T18:11:11.8045402Z 8b28610bc0c628ace24965e43d4710288ba71080
+2026-08-15T18:11:11.8416020Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-08-15T18:11:11.8421615Z ##[group]Run actions/setup-node@v4
+2026-08-15T18:11:11.8422759Z with:
+2026-08-15T18:11:11.8423673Z   node-version: 20
+2026-08-15T18:11:11.8424643Z   cache: npm
+2026-08-15T18:11:11.8425771Z   cache-dependency-path: frontend/package-lock.json
+2026-08-15T18:11:11.8427283Z   always-auth: false
+2026-08-15T18:11:11.8428358Z   check-latest: false
+2026-08-15T18:11:11.8438062Z   token: ***
+2026-08-15T18:11:11.8439009Z ##[endgroup]
+2026-08-15T18:11:11.9990998Z Attempting to download 20...
+2026-08-15T18:11:12.0103260Z (node:2243) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-08-15T18:11:12.0108806Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-08-15T18:11:12.9217951Z Acquiring 20.20.2 - x64 from https://github.com/actions/node-versions/releases/download/20.20.2-23521894959/node-20.20.2-linux-x64.tar.gz
+2026-08-15T18:11:13.5740344Z Extracting ...
+2026-08-15T18:11:13.5869213Z [command]/usr/bin/tar xz --strip 1 --warning=no-unknown-keyword --overwrite -C /home/runner/work/_temp/4d6de6a0-2a33-4fd7-aa7b-7cf8105f8f92 -f /home/runner/work/_temp/2c420d5c-6965-43ca-bda8-fd22927526cb
+2026-08-15T18:11:14.5856606Z Adding to the cache ...
+2026-08-15T18:11:16.5044611Z ##[group]Environment details
+2026-08-15T18:11:16.8580426Z node: v20.20.2
+2026-08-15T18:11:16.8581187Z npm: 10.8.2
+2026-08-15T18:11:16.8581533Z yarn: 1.22.22
+2026-08-15T18:11:16.8582165Z ##[endgroup]
+2026-08-15T18:11:16.8603964Z [command]/opt/hostedtoolcache/node/20.20.2/x64/bin/npm config get cache
+2026-08-15T18:11:16.9647073Z /home/runner/.npm
+2026-08-15T18:11:17.1842891Z npm cache is not found
+2026-08-15T18:11:17.2043315Z ##[group]Run rm -f package-lock.json && npm install
+2026-08-15T18:11:17.2043824Z [36;1mrm -f package-lock.json && npm install[0m
+2026-08-15T18:11:17.2087493Z shell: /usr/bin/bash -e {0}
+2026-08-15T18:11:17.2087836Z ##[endgroup]
+2026-08-15T18:11:31.5220986Z npm warn deprecated recharts@2.15.4: 1.x and 2.x branches are no longer active. Bump to Recharts v3 to receive latest features and bugfixes. See https://github.com/recharts/recharts/wiki/3.0-migration-guide
+2026-08-15T18:11:32.5108562Z npm error code ENOENT
+2026-08-15T18:11:32.5109280Z npm error syscall spawn cmd.exe
+2026-08-15T18:11:32.5110281Z npm error path /home/runner/work/Video-analysis/Video-analysis/frontend/node_modules/esbuild
+2026-08-15T18:11:32.5111165Z npm error errno -2
+2026-08-15T18:11:32.5111688Z npm error enoent spawn cmd.exe ENOENT
+2026-08-15T18:11:32.5112505Z npm error enoent This is related to npm not being able to find a file.
+2026-08-15T18:11:32.5113123Z npm error enoent
+2026-08-15T18:11:32.5132940Z npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2026-08-15T18_11_17_279Z-debug-0.log
+2026-08-15T18:11:32.5366177Z ##[error]Process completed with exit code 254.
+2026-08-15T18:11:32.5527519Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-08-15T18:11:32.5529092Z Post job cleanup.
+2026-08-15T18:11:32.6394463Z [command]/usr/bin/git version
+2026-08-15T18:11:32.6434420Z git version 2.54.0
+2026-08-15T18:11:32.6481139Z Temporarily overriding HOME='/home/runner/work/_temp/1a8b14be-af8f-43c3-a533-f2ad12437740' before making global git config changes
+2026-08-15T18:11:32.6483236Z Adding repository directory to the temporary git global config as a safe directory
+2026-08-15T18:11:32.6488498Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Video-analysis/Video-analysis
+2026-08-15T18:11:32.6533749Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-08-15T18:11:32.6574158Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-08-15T18:11:32.6834306Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-08-15T18:11:32.6868846Z http.https://github.com/.extraheader
+2026-08-15T18:11:32.6881780Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-08-15T18:11:32.6918333Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-08-15T18:11:32.7177588Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-08-15T18:11:32.7222325Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-08-15T18:11:32.7631616Z Cleaning up orphan processes
+2026-08-15T18:11:32.7933361Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
