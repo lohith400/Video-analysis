@@ -25,9 +25,12 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 COPY . .
 
-# Model weights are NOT baked into the image — mount them at runtime.
-# See docker-compose.yml: ./backend/models -> /app/models
-RUN mkdir -p /app/models /app/uploads
+# Download all model weights during build so they're baked into the image.
+# Vehicle model (yolov8n.pt) auto-downloads via ultralytics; custom-trained
+# models (plate, helmet, gender) are fetched from the v1.0-models GitHub Release.
+RUN mkdir -p /app/models /app/uploads && \
+    python download_models.py
+
 
 EXPOSE 8000
 
