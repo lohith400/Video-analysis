@@ -11,20 +11,27 @@ trust these numbers.
 | Property | Value |
 |---|---|
 | Base architecture | YOLOv8-Nano (COCO-pretrained) |
-| Parameters | 3.01 M — 5.94 MB weights |
-| Training run | `indian_plate_v2`, 50 epochs, batch 8, AdamW, 640×640 input |
-| Training time | 1,724.6 s (≈28.7 min) on RTX 3050 |
-| mAP@50 | 95.35% |
-| mAP@50–95 | 66.97% |
-| Precision / Recall | 84.51% / 93.32% |
-| Final validation losses | Box 0.985, Cls 0.567, DFL 0.801 |
-| Dataset | 320 images, Roboflow-hosted annotation project + a legacy supplemental set |
-| Held-out test split | **None reported** for the active 320-image set |
+| Parameters | 3.01 M — 23.42 MB weights |
+| Training run | `plate_v1`, 29/80 epochs (early stopped after convergence), batch 16, 960×960 input |
+| Training time | ~17 min on RTX 3050 (29 epochs × ~35s/epoch) |
+| **mAP@50** | **99.37%** |
+| **mAP@50–95** | **83.09%** |
+| **Precision / Recall** | **98.52% / 98.14%** |
+| Inference speed | 8.3 ms/image (~120 FPS) on RTX 3050 |
+| Dataset | 2,021 annotated images from Kaggle (`kedarsai/indian-license-plates-with-labels`) |
+| Dataset split | 1,616 train / 202 val / 203 test (80/10/10, seed=42) |
+| Skipped images | 62 unannotated background images excluded |
+| Loss weights | Box=7.5 (elevated for small-object accuracy), Cls=0.5 |
+| Early stopping | patience=20 — best weights auto-saved at peak mAP |
+| Real-video test | 28/30 sampled frames detected plates on actual Indian traffic footage |
 
-The gap between mAP@50 (95.4%) and mAP@50-95 (67.0%) means the model
-finds plates reliably but bounding boxes aren't always tightly
-localised — typical for a small nano model, and acceptable here because
-the downstream OCR crop is padded before recognition.
+The 960×960 input resolution was chosen specifically because license plates
+are small objects in wide traffic frames. The elevated box loss gain (7.5
+vs default 5.0) improved tight bounding-box localization, closing the
+mAP@50 → mAP@50-95 gap significantly compared to the previous 640×640
+training run. The model is deployed as the production plate detector for
+the ANPR pipeline.
+
 
 ## 2. Helmet Compliance Detector
 
@@ -84,6 +91,9 @@ you'll need your own source footage to retrain from scratch.
 
 ---
 
-*Numbers sourced from the original project technical report
-(May 2026). See [LIMITATIONS.md](LIMITATIONS.md) for the honest
-assessment of what these metrics do and don't tell you.*
+*Plate model numbers sourced from the August 2026 retraining run
+(see `Notes/license_plate_model_report.md`). Helmet and gender model
+numbers sourced from the original project technical report (May 2026).
+See [LIMITATIONS.md](LIMITATIONS.md) for the honest assessment of what
+these metrics do and don't tell you.*
+
