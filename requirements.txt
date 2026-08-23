@@ -1,0 +1,20 @@
+# Traffic Monitoring System - Requirements
+# Install with: pip install -r requirements.txt
+
+# Core
+ultralytics>=8.0.0        # YOLOv8
+opencv-python>=4.8.0
+numpy>=1.24.0
+
+# OCR for license plates
+easyocr>=1.7.0
+
+# Gender & Age analysis
+deepface>=0.0.90
+tf-keras>=2.15.0          # DeepFace backend
+
+# Optional: GPU acceleration
+# torch==2.0.0+cu118      # uncomment for CUDA GPU
+
+# Optional: Better tracking (replace simple centroid tracker)
+# lapx>=0.5.5             # for ByteTrack

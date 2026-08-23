@@ -1,0 +1,18 @@
+{
+  "runtime_s": 365.7,
+  "vehicle_counts": {
+    "4-Wheeler": 75,
+    "Truck": 11,
+    "3-Wheeler": 13,
+    "2-Wheeler": 111,
+    "Bus": 8
+  },
+  "total_vehicles": 218,
+  "people_detected": 9,
+  "helmet_compliance": {
+    "yes": 4,
+    "no": 0,
+    "unknown": 2
+  },
+  "plates": []
+}

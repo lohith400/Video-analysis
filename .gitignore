@@ -1,84 +1,40 @@
-# ── Python ────────────────────────────────────────────────────────────────
+# Python
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
+*$py.class
+*.so
 .Python
-*.egg-info/
-dist/
-build/
-*.egg
 
-# ── Virtual environments ───────────────────────────────────────────────────
+# Virtual Environment
 .venv/
 venv/
 env/
-ENV/
 
-# ── ML Models & Weights (Ignore all large model files recursively) ─────────
+# ML Models & Weights (keep folder structure but ignore large binaries)
 *.pt
 *.pth
 *.onnx
 *.weights
 *.bin
-yolov8n.pt
-yolo26n.pt
-yolo*.pt
-# Keep models/ folder structure but ignore all weights inside it
 !models/
 models/*
 !models/.gitkeep
 
-# ── Datasets (Ignore entire dataset folders) ──────────────────────────────
-plate_dataset/
-dataset/
-runs/
-
-# ── Uploaded videos / images ───────────────────────────────────────────────
-uploads/
-*.mp4
-*.avi
-*.mov
-*.mkv
-*.jpg
-*.jpeg
-*.png
-*.bmp
-
-# ── Generated data / Logs ──────────────────────────────────────────────────
-traffic_log.csv
+# Output and logs
+output/
 *.csv
 *.log
-logs/
-train_error.log
+runs/
 
-# ── Frontend build & deps ──────────────────────────────────────────────────
-frontend/node_modules/
-frontend/dist/
-frontend/.vite/
-frontend/build/
+# Large archives and datasets
+*.zip
+plate_dataset_raw/
+training_frames/
+ci_log_extracted*/
+videos/
 
-# ── Zone.Identifier files (Windows WSL artefacts) ─────────────────────────
-*Zone.Identifier
-**/*Zone.Identifier
-**/*:Zone.Identifier
-
-# ── IDE / OS ───────────────────────────────────────────────────────────────
+# IDE / OS
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
-
-# Environment files (never commit real secrets)
-.env
-*.env
-!.env.example
-
-# Datasets, logs, and build artifacts — never commit
-ci_log*.zip
-ci_log_extracted*/
-indian-license-plates-with-labels.zip
-plate_dataset_raw/
-backend/plate_dataset_train/
-*.timestamp-*.mjs
-
