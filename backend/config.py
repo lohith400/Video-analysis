@@ -1,7 +1,7 @@
 """Configuration for traffic video analysis."""
 
 VEHICLE_MODEL = "models/yolov8n.pt"
-PLATE_MODEL = "models/license_plate_detector.pt"
+PLATE_MODEL = "models/v2.0/license_plate_detector.pt"
 CSV_PATH = "traffic_log.csv"
 CSV_UPDATE_INTERVAL = 1  # seconds
 
@@ -82,7 +82,7 @@ RTSP_RECONNECT_WAIT_SEC = 5
 WINDOW_NAME = "Traffic Analysis"
 
 # --- HELMET DETECTION CONFIGS ---
-HELMET_MODEL = "models/helmet_detector.pt"
+HELMET_MODEL = "models/v2.0/helmet_detector.pt"
 HELMET_CONF_THRESHOLD = 0.45
 TWO_WHEELER_CLASSES = ["motorcycle", "scooter"]
 HELMET_CHECK_EVERY_N = 5
@@ -91,7 +91,10 @@ HELMET_CLASS_MAP = {
     "without_helmet": "no_helmet",
     "helmet": "helmet",
     "no_helmet": "no_helmet",
-    "head": "no_helmet"
+    "head": "no_helmet",
+    "Helmet": "helmet",
+    "No_Helmet": "no_helmet",
+    "Bike_Rider": "helmet",
 }
 
 # --- PEDESTRIAN GENDER & CHILD DETECTION CONFIGS ---

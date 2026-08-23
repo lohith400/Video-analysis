@@ -42,6 +42,7 @@ def main() -> None:
     # --- Custom-trained models (from GitHub Release) ---
     for local_path, url in CUSTOM_MODEL_URLS.items():
         dest = Path(local_path)
+        dest.parent.mkdir(parents=True, exist_ok=True)
         if dest.exists():
             print(f"Already present: {dest}")
             continue
