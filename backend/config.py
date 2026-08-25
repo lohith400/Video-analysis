@@ -10,6 +10,14 @@ PLATE_CONF_THRESHOLD = 0.25  # Lowered from 0.5 to catch plates with lower initi
 IOU_THRESHOLD = 0.5
 USE_HALF = True
 
+# license_plate_detector.pt was saved with an already-fused Conv+BN graph
+# from an older Ultralytics version. Running that checkpoint under half
+# precision on this Ultralytics version triggers "'Conv' object has no
+# attribute 'bn'" on inference. Keep the vehicle model on USE_HALF for
+# speed, but force the plate model to run in full precision until the
+# checkpoint is re-exported/re-fused under the current Ultralytics version.
+PLATE_USE_HALF = False
+
 MIN_PLATE_CHARS = 4
 MAX_PLATE_CHARS = 10
 
@@ -75,7 +83,10 @@ COCO_VEHICLE_ID_MAP = {
 }
 
 TRACKER_CONFIG = "models/custom_bytetrack.yaml"
-PLATE_DETECT_EVERY_N_FRAMES = 3
+# Was 3 — combined with the 3-frame buffering requirement in
+# OCREngine.submit_vehicle_crop, that meant a fresh detection attempt only
+# every ~9-10 frames. Lowered to 1 so plate detection runs every frame.
+PLATE_DETECT_EVERY_N_FRAMES = 1
 TARGET_MIN_FPS = 15
 OCR_MAX_WORKERS = 4
 RTSP_RECONNECT_WAIT_SEC = 5

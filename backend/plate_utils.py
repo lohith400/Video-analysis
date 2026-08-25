@@ -11,6 +11,7 @@ CI and unit tests can import in milliseconds.
 
 from __future__ import annotations
 
+import collections
 import re
 from typing import List, Optional, Sequence, Tuple
 
@@ -110,6 +111,106 @@ def clean_and_correct_indian_plate(text: str) -> Optional[str]:
 
 def is_valid_plate(text: str) -> bool:
     return config.MIN_PLATE_CHARS <= len(text) <= config.MAX_PLATE_CHARS
+
+
+def edit_distance(a: str, b: str) -> int:
+    """Standard Levenshtein distance. Small strings (plates are <=10 chars)
+    so the O(n*m) DP table here is cheap — no need for a library."""
+    if a == b:
+        return 0
+    if not a:
+        return len(b)
+    if not b:
+        return len(a)
+
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        curr = [i] + [0] * len(b)
+        for j, cb in enumerate(b, 1):
+            cost = 0 if ca == cb else 1
+            curr[j] = min(
+                prev[j] + 1,       # deletion
+                curr[j - 1] + 1,   # insertion
+                prev[j - 1] + cost,  # substitution
+            )
+        prev = curr
+    return prev[-1]
+
+
+def plates_agree(a: str, b: str, max_edit: int = 2) -> bool:
+    """Two OCR reads are considered the same plate if they're close enough
+    (small edit distance) rather than requiring an exact string match.
+    This absorbs the frame-to-frame OCR noise (dropped/extra/confused
+    characters) that otherwise splits votes across near-identical reads
+    and lets an early garbage read 'win' a majority vote forever."""
+    return edit_distance(a, b) <= max_edit
+
+
+def best_plate_cluster(history: Sequence[str]) -> Tuple[Optional[str], int, int]:
+    """Groups a rolling history of raw OCR reads into edit-distance clusters
+    and returns (representative_text, votes_in_winning_cluster, total_reads).
+
+    representative_text is the *longest* member of the winning cluster
+    (more characters generally means a cleaner read), not just whichever
+    string happened to appear first — this avoids getting stuck on a short
+    early garbage read (e.g. 'XU86') once better, longer reads for the same
+    plate start showing up (e.g. 'KA05NH8088').
+    """
+    if not history:
+        return None, 0, 0
+
+    # Priority 1: if ANY read in history already corrects into a fully valid
+    # Indian plate, trust that over raw clustering. Short garbage reads
+    # ('YI', 'TF', 'FIE') are dangerous to cluster by edit distance — a
+    # 2-char edit budget is huge relative to a 2-4 char string, so unrelated
+    # noise can coincidentally cluster together and outvote a real plate
+    # that only appeared twice. A validated, correctly-formatted plate is a
+    # much stronger signal than cluster size alone.
+    valid_hits = []
+    for text in history:
+        corrected = clean_and_correct_indian_plate(text)
+        if corrected and INDIAN_PLATE_REGEX.match(corrected):
+            valid_hits.append(corrected)
+
+    if valid_hits:
+        winner, _ = collections.Counter(valid_hits).most_common(1)[0]
+        votes = sum(
+            1 for t in history
+            if clean_and_correct_indian_plate(t) == winner or plates_agree(t, winner)
+        )
+        return winner, votes, len(history)
+
+    # Priority 2: nothing validated yet. Cluster by edit distance, but only
+    # among reads long enough to plausibly be a real (partial) plate, so
+    # short noise strings don't dominate the pool.
+    pool = [t for t in history if len(t) >= config.MIN_PLATE_CHARS] or list(history)
+
+    clusters: List[List[str]] = []
+    for text in pool:
+        placed = False
+        for cluster in clusters:
+            if plates_agree(text, cluster[0]):
+                cluster.append(text)
+                placed = True
+                break
+        if not placed:
+            clusters.append([text])
+
+    best_cluster = max(clusters, key=len)
+
+    # Picking the longest raw string as the representative is a trap: a
+    # single stray extra character ('PKA05NH8088' from a smudge/reflection)
+    # will beat the true, clean 'KA05NH8088' just by being longer. Instead
+    # use the most common LENGTH within the cluster (repeated reads tend to
+    # agree on the true plate length even when individual characters are
+    # noisy), then the most frequent raw string at that length.
+    lengths = collections.Counter(len(c) for c in best_cluster)
+    modal_len = lengths.most_common(1)[0][0]
+    same_len = [c for c in best_cluster if len(c) == modal_len]
+    cluster_counts = collections.Counter(best_cluster)
+    representative = max(same_len, key=lambda c: cluster_counts[c])
+
+    return representative, len(best_cluster), len(history)
 
 
 def nms(

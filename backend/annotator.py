@@ -48,13 +48,12 @@ def draw_annotations(
         if plate:
             _draw_label_below(out, plate, x1, y1, color)
             
-        # Draw a sleek bright green bounding box around the license plate itself if coordinate is detected
+        # Draw a sleek bright green bounding box around the license plate itself if coordinate is detected.
+        # plate_boxes now stores ABSOLUTE frame coordinates (see ocr_engine.py) — drawn as-is,
+        # not re-based onto this vehicle's current bbox, which used to cause the box to drift
+        # away from the plate as the vehicle moved between when detection ran and when it's drawn.
         if plate_boxes and v.track_id in plate_boxes:
-            px1, py1, px2, py2 = plate_boxes[v.track_id]
-            abs_px1 = x1 + px1
-            abs_py1 = y1 + py1
-            abs_px2 = x1 + px2
-            abs_py2 = y1 + py2
+            abs_px1, abs_py1, abs_px2, abs_py2 = plate_boxes[v.track_id]
             cv2.rectangle(out, (abs_px1, abs_py1), (abs_px2, abs_py2), (0, 255, 0), 2)
 
     # 4. Draw helmet violations

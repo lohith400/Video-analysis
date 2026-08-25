@@ -16,6 +16,7 @@ from detector import PlateDetector
 import config
 from plate_utils import (
     INDIAN_PLATE_REGEX,
+    best_plate_cluster,
     clean_and_correct_indian_plate,
     nms,
 )
@@ -97,7 +98,7 @@ class OCREngine:
         
         # State tracking
         self.results: Dict[int, str] = {}  # track_id -> plate text
-        self.plate_boxes: Dict[int, Tuple[int, int, int, int]] = {}  # track_id -> relative bbox (px1, py1, px2, py2)
+        self.plate_boxes: Dict[int, Tuple[int, int, int, int]] = {}  # track_id -> ABSOLUTE frame bbox (x1, y1, x2, y2)
         self.pending_futures: Dict[int, Future[Optional[Tuple[str, Tuple[int, int, int, int]]]]] = {}  # track_id -> Future
         self.attempts: Dict[int, int] = {}  # track_id -> number of attempts
         
@@ -202,14 +203,24 @@ class OCREngine:
             # Keep the highest confidence detection
             best_idx = keep_indices[0]
             best_abs_bbox, best_conf, best_plate_crop, (vx1, vy1, vx2, vy2) = all_plates[best_idx]
-            
-            # Recalculate plate bbox relative to the selected vehicle frame's coordinates
-            abs_px1, abs_py1, abs_px2, abs_py2 = best_abs_bbox
-            rel_px1 = abs_px1 - vx1
-            rel_py1 = abs_py1 - vy1
-            rel_px2 = abs_px2 - vx1
-            rel_py2 = abs_py2 - vy1
-            rel_bbox = (rel_px1, rel_py1, rel_px2, rel_py2)
+
+            # IMPORTANT: keep this as an ABSOLUTE frame-coordinate box.
+            #
+            # This detection ran inside a background thread, on a vehicle
+            # crop captured 1-3 frames ago (vx1, vy1 = that OLD vehicle
+            # position). By the time this result is drawn, the caller
+            # (annotator.py) only knows the vehicle's CURRENT bbox, which
+            # has moved since. Previously this method converted the box to
+            # be *relative to the old vehicle position* (vx1, vy1), and
+            # annotator.py re-added the *current* vehicle position on top
+            # of that — silently mixing two different points in time and
+            # causing the green box to drift away from the actual plate.
+            #
+            # Storing/drawing the absolute position directly removes that
+            # double coordinate transform. The box is still up to a few
+            # frames old, but it's drawn where the plate actually was,
+            # not offset by however far the vehicle has since moved.
+            abs_bbox = best_abs_bbox
 
             # Apply advanced binarization OCR preprocessing
             thresholded_plate = preprocess_plate_for_ocr(best_plate_crop)
@@ -258,7 +269,7 @@ class OCREngine:
                     text = raw_text_inv
 
             # Return text, relative bounding box, and whether the text matches standard Indian format
-            return text, rel_bbox, is_valid
+            return text, abs_bbox, is_valid
         except Exception as exc:
             print(f"[OCREngine] Error processing track {track_id}: {exc}")
         return None
@@ -272,10 +283,12 @@ class OCREngine:
                     try:
                         result = future.result()
                         if result is not None:
-                            plate_text, rel_bbox, is_valid = result
-                            
-                            # Always update relative plate bounding box to render the green box instantly
-                            self.plate_boxes[track_id] = rel_bbox
+                            plate_text, abs_bbox, is_valid = result
+
+                            # Store the ABSOLUTE frame-coordinate box directly (see note
+                            # in _process_crops_stabilized) so annotator.py can draw it
+                            # as-is without re-basing it onto the vehicle's current bbox.
+                            self.plate_boxes[track_id] = abs_bbox
                             
                             # Print a debug message to monitor OCR progress
                             print(f"[OCREngine] Track #{track_id} OCR read: '{plate_text}' (is_valid: {is_valid})")
@@ -283,33 +296,48 @@ class OCREngine:
                             # Require at least 2 matching OCR reads before accepting a plate.
                             # This filters single-attempt garbage reads like 'J5Y5RLG' or 'O57L'.
                             if plate_text and config.MIN_PLATE_CHARS <= len(plate_text) <= config.MAX_PLATE_CHARS:
-                                # 1. Update rolling OCR history for majority voting (up to 10 reads)
+                                # 1. Update rolling OCR history for clustered voting (up to 10 reads)
                                 if track_id not in self.ocr_history:
                                     self.ocr_history[track_id] = []
                                 self.ocr_history[track_id].append(plate_text)
                                 if len(self.ocr_history[track_id]) > 10:
                                     self.ocr_history[track_id].pop(0)
 
-                                # 2. Only accept the plate if at least 2 reads agree (majority vote)
-                                counter = collections.Counter(self.ocr_history[track_id])
-                                most_common_plate, count = counter.most_common(1)[0]
-                                confidence = (count / len(self.ocr_history[track_id])) * 100
+                                # 2. Group near-identical reads (edit-distance <= 2) instead of
+                                #    requiring an exact string match. This stops frame-to-frame
+                                #    OCR noise ('KA05NH8088' vs 'PKA05NH8088' vs 'AO5H88088')
+                                #    from splitting votes across near-duplicates.
+                                history = self.ocr_history[track_id]
+                                winner, count, total = best_plate_cluster(history)
+                                confidence = (count / total) * 100 if total else 0.0
 
-                                # 3. Log to console
+                                # 3. Validity is checked against the WINNING candidate, not the
+                                #    single latest raw read — a run of noisy reads shouldn't be
+                                #    labeled "VALID" just because the newest one happened to parse.
+                                winner_corrected = clean_and_correct_indian_plate(winner) if winner else None
+                                winner_is_valid = bool(
+                                    winner_corrected and INDIAN_PLATE_REGEX.match(winner_corrected)
+                                )
+                                display_text = winner_corrected if winner_corrected else winner
+
+                                # 4. Log to console
                                 import time
                                 timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-                                valid_tag = "✓ VALID" if is_valid else "~ PARTIAL"
-                                print(f"[{timestamp}] Vehicle #{track_id} → Plate: {most_common_plate} ({valid_tag}, votes: {count}/{len(self.ocr_history[track_id])}, conf: {confidence:.0f}%)")
+                                valid_tag = "✓ VALID" if winner_is_valid else "~ PARTIAL"
+                                print(f"[{timestamp}] Vehicle #{track_id} → Plate: {display_text} ({valid_tag}, votes: {count}/{total}, conf: {confidence:.0f}%)")
 
-                                # 4. MINIMUM 2 VOTES required before saving to results
-                                #    This blocks single-attempt garbage from appearing in the UI
+                                # 5. MINIMUM 2 VOTES (within the winning cluster) required before
+                                #    saving to results — blocks single-attempt garbage.
                                 if count >= 2:
                                     existing = self.results.get(track_id)
                                     existing_valid = existing and INDIAN_PLATE_REGEX.match(existing) is not None
-                                    # Prefer valid plates; only overwrite partial with partial if new has more votes
-                                    if not existing or (is_valid and not existing_valid):
-                                        self.results[track_id] = most_common_plate
-                                    print(f"[OCREngine] ✓ Plate confirmed for track #{track_id}: {most_common_plate}")
+                                    # Prefer valid plates; upgrade a partial to a better partial
+                                    # only if the new candidate has more votes backing it.
+                                    if not existing or (winner_is_valid and not existing_valid) or (
+                                        not existing_valid and count > history.count(existing)
+                                    ):
+                                        self.results[track_id] = display_text
+                                    print(f"[OCREngine] ✓ Plate confirmed for track #{track_id}: {display_text}")
                     except Exception as exc:
                         print(f"[OCREngine] Future error for track {track_id}: {exc}")
                     completed_ids.append(track_id)
