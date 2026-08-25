@@ -1,18 +1,85 @@
 {
-  "runtime_s": 365.7,
+  "runtime_s": 261.6,
   "vehicle_counts": {
-    "4-Wheeler": 75,
-    "Truck": 11,
-    "3-Wheeler": 13,
-    "2-Wheeler": 111,
-    "Bus": 8
+    "2-Wheeler": 25,
+    "4-Wheeler": 61,
+    "Bus": 18,
+    "3-Wheeler": 24,
+    "Truck": 11
   },
-  "total_vehicles": 218,
-  "people_detected": 9,
+  "total_vehicles": 139,
+  "people_detected": 2,
   "helmet_compliance": {
-    "yes": 4,
-    "no": 0,
-    "unknown": 2
+    "yes": 0,
+    "no": 1,
+    "unknown": 0
   },
-  "plates": []
+  "plates": [
+    {
+      "plate": "AA54AZZBA1",
+      "vehicle": "2-Wheeler",
+      "color": "green",
+      "conf": 0.056
+    },
+    {
+      "plate": "AS44D2P1E",
+      "vehicle": "4-Wheeler",
+      "color": "green",
+      "conf": 0.038
+    },
+    {
+      "plate": "KA54Z476",
+      "vehicle": "Bus",
+      "color": "yellow",
+      "conf": 0.033
+    },
+    {
+      "plate": "KA29RL26",
+      "vehicle": "3-Wheeler",
+      "color": "yellow",
+      "conf": 0.009
+    },
+    {
+      "plate": "AO42OBO8643",
+      "vehicle": "3-Wheeler",
+      "color": "white",
+      "conf": 0.028
+    },
+    {
+      "plate": "AS20Z476",
+      "vehicle": "Bus",
+      "color": "yellow",
+      "conf": 0.401
+    },
+    {
+      "plate": "AS11B476",
+      "vehicle": "Truck",
+      "color": "yellow",
+      "conf": 0.186
+    },
+    {
+      "plate": "GA53O9476",
+      "vehicle": "Truck",
+      "color": "yellow",
+      "conf": 0.454
+    },
+    {
+      "plate": "LA40SNO8528",
+      "vehicle": "4-Wheeler",
+      "color": "white",
+      "conf": 0.163
+    },
+    {
+      "plate": "LA40S4357",
+      "vehicle": "4-Wheeler",
+      "color": "white",
+      "conf": 0.15
+    },
+    {
+      "plate": "KA57F6008",
+      "vehicle": "Bus",
+      "color": "green",
+      "conf": 0.992
+    }
+  ]
 }

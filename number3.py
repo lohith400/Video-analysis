@@ -32,10 +32,11 @@ except ImportError:
 # ═══════════════════════════════════════════════════════════════════════
 #  USER CONFIG
 # ═══════════════════════════════════════════════════════════════════════
-VIDEO_IN          = r"C:\Users\lohit\.vscode\Code\OWN\traffic_analysis\backend\uploads\L2.mp4"   # ← relative path to L2.mp4 or video2.mp4
+VIDEO_IN          = r"C:\Users\lohit\Downloads\VID_20260503_172859851.mp4"# ← relative path to L2.mp4 or video2.mp4
 PLATE_MODEL_PATH  = "license_plate_detector.pt"
 VEHICLE_MODEL     = "yolov8n.pt"
-HELMET_MODEL      = r"..\vehicle2\files\models\helmet_detector.pt"   # path to the existing helmet model
+HELMET_MODEL      = "helmet_detector.pt" if os.path.exists("helmet_detector.pt") else r"..\vehicle2\files\models\helmet_detector.pt"
+
 
 # Detection thresholds
 VEHICLE_CONF      = 0.30
