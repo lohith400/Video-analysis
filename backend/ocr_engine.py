@@ -159,7 +159,7 @@ class OCREngine:
                     preprocessed_vehicle,
                     conf=config.PLATE_CONF_THRESHOLD,
                     iou=config.IOU_THRESHOLD,
-                    half=config.USE_HALF,
+                    half=config.PLATE_USE_HALF,
                     device=self.device,
                     verbose=False,
                 )
