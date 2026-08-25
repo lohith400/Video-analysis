@@ -11,12 +11,20 @@ from pathlib import Path
 
 import cv2
 
+from datetime import datetime
+
 import config
 from annotator import draw_annotations
 from csv_logger import CSVLogger
 from detector import VehicleModelLoader, crop_vehicle, get_device
 from tracker import VehicleTracker, TrackedVehicle
 from traffic_counter import TrafficCounter
+from helmet_checker import HelmetChecker
+from pedestrian_detector import PedestrianDetector, RawBox
+
+
+def _current_timestamp() -> str:
+    return datetime.now().isoformat()
 
 # Shared snapshot for CSV background thread
 _state_lock = threading.Lock()
@@ -27,6 +35,13 @@ if "Others" not in _initial_target_classes:
     _initial_target_classes.append("Others")
 _latest_counts: dict = {cls: 0 for cls in _initial_target_classes}
 _latest_counts["total"] = 0
+
+# Persistent, never-purged session log of every pedestrian track_id ever
+# seen, with the last-known gender classification. pedestrian_detector's own
+# `.results` dict gets pruned as people leave frame (cleanup_stale), so it
+# can't answer "how many distinct people were seen in the whole video" on
+# its own — this dict is what makes the final report's human count correct.
+_all_pedestrians_seen: dict = {}
 
 
 def _get_counts_snapshot() -> dict:
@@ -123,9 +138,19 @@ def main() -> int:
         from ocr_engine import OCREngine
         ocr = OCREngine(device)
 
+    # Helmet detection and pedestrian/gender detection — these already exist
+    # and work (server.py has used them all along), they just were never
+    # wired into this script before, which is why every CSV produced by
+    # main.py showed helmet_violations=0 and pedestrians=0 regardless of
+    # what was actually in the video.
+    helmet_checker = HelmetChecker(device=device)
+    pedestrian_detector = PedestrianDetector(device=device)
+
     csv_logger = CSVLogger(
         counts_getter=_get_counts_snapshot,
         plates_getter=ocr.get_all_plates if use_ocr else (lambda: {}),
+        violations_getter=helmet_checker.get_active_violations,
+        pedestrians_getter=lambda: pedestrian_detector.get_current_pedestrians()[0],
     )
     csv_logger.start()
 
@@ -160,16 +185,82 @@ def main() -> int:
                 global _latest_counts
                 _latest_counts = counter.get_counts()
 
-            # Only run plate pipeline if OCR is enabled
+            # ── Plate detection — synchronous, every frame (see detect_plates_sync
+            # docstring in ocr_engine.py for why this replaced the old buffered
+            # background-thread approach: a moving camera makes any stale/buffered
+            # detection land in the wrong place, both visually and for what the
+            # OCR crop actually contains).
             if use_ocr:
-                run_plate = frame_idx % config.PLATE_DETECT_EVERY_N_FRAMES == 0
-                if run_plate:
-                    for v in vehicles:
-                        if _should_run_plate_pipeline(v, ocr):
+                if frame_idx % config.PLATE_DETECT_EVERY_N_FRAMES == 0:
+                    plate_vehicles = [
+                        v for v in vehicles
+                        if v.vehicle_class in config.PLATE_DETECTION_CLASSES
+                        and v.vehicle_class not in config.NO_PLATE_CLASSES
+                        and (v.bbox[3] - v.bbox[1]) >= config.MIN_VEHICLE_HEIGHT_FOR_OCR
+                    ]
+                    ocr.detect_plates_sync(frame, plate_vehicles)
+
+            # ── Helmet checker (async — bbox precision doesn't matter here,
+            # only the classification, so the existing background thread pool
+            # design from server.py is fine as-is).
+            if helmet_checker is not None:
+                for v in vehicles:
+                    if v.vehicle_class in config.TWO_WHEELER_CLASSES:
+                        with helmet_checker._lock:
+                            if v.track_id not in helmet_checker.all_two_wheeler_statuses:
+                                plate_now = ocr.get_plate(v.track_id) if use_ocr else None
+                                helmet_checker.all_two_wheeler_statuses[v.track_id] = {
+                                    "track_id": v.track_id,
+                                    "plate": plate_now or "UNKNOWN",
+                                    "vehicle_class": v.vehicle_class,
+                                    "rider_helmet": "unknown",
+                                    "pillion_helmet": "none",
+                                    "timestamp": _current_timestamp(),
+                                }
+                        if helmet_checker.should_check(v.track_id, frame_idx):
+                            plate = (ocr.get_plate(v.track_id) if use_ocr else None) or "UNKNOWN"
                             crop = crop_vehicle(frame, v.bbox)
-                            if crop.size > 0:
-                                ocr.submit_vehicle_crop(v.track_id, crop, v.bbox)
-                ocr.drain_completed()
+                            helmet_checker.submit(v.track_id, crop, v.vehicle_class, plate, _current_timestamp(), v.bbox)
+                helmet_checker.drain_completed()
+
+            # ── Pedestrian & gender/child detector.
+            if pedestrian_detector is not None:
+                raw_results = []
+                if tracker.last_boxes is not None:
+                    boxes = tracker.last_boxes
+                    if boxes.id is not None:
+                        xyxy = boxes.xyxy.cpu().numpy()
+                        cls_ids = boxes.cls.cpu().numpy().astype(int)
+                        track_ids = boxes.id.cpu().numpy().astype(int)
+                        for i in range(len(xyxy)):
+                            raw_results.append(RawBox(
+                                cls=cls_ids[i],
+                                track_id=track_ids[i],
+                                bbox=(int(xyxy[i][0]), int(xyxy[i][1]), int(xyxy[i][2]), int(xyxy[i][3])),
+                            ))
+                person_boxes = [b for b in raw_results if b.cls == 0]
+                vehicle_boxes = [v.bbox for v in vehicles]
+                pedestrians = pedestrian_detector.filter_pedestrians(person_boxes, vehicle_boxes)
+                for p in pedestrians:
+                    if pedestrian_detector.should_check(p.track_id, frame_idx):
+                        crop = crop_vehicle(frame, p.bbox)
+                        pedestrian_detector.submit(p.track_id, crop, _current_timestamp())
+                pedestrian_detector.drain_completed()
+
+                # Record into the persistent session log BEFORE cleanup_stale
+                # prunes anything — this is what lets the final report count
+                # every distinct person seen across the whole video, not just
+                # whoever happens to still be on-screen at the last frame.
+                for p in pedestrians:
+                    gender = pedestrian_detector.results.get(p.track_id, "unknown")
+                    if p.track_id not in _all_pedestrians_seen or gender != "unknown":
+                        _all_pedestrians_seen[p.track_id] = gender
+
+            if frame_idx % 30 == 0:
+                active_ids = {v.track_id for v in vehicles}
+                helmet_checker.cleanup_stale(active_ids)
+                active_person_ids = {p.track_id for p in (pedestrians if pedestrian_detector else [])}
+                pedestrian_detector.cleanup_stale(active_person_ids)
 
             t_now = time.perf_counter()
             dt = t_now - t_prev
@@ -180,6 +271,8 @@ def main() -> int:
             plate_map = ocr.get_all_plates() if use_ocr else {}
             plate_boxes = ocr.get_all_plate_boxes() if use_ocr else {}
             total_plates = ocr.total_plates_detected if use_ocr else 0
+            active_violations = helmet_checker.get_active_violations()
+            pedestrian_summary, _ = pedestrian_detector.get_current_pedestrians()
 
             annotated = draw_annotations(
                 frame,
@@ -190,6 +283,8 @@ def main() -> int:
                 total_plates,
                 counter=counter,
                 plate_boxes=plate_boxes,
+                violations=active_violations,
+                pedestrians=pedestrian_summary,
             )
 
             # Auto-scale display to fit screen comfortably
@@ -219,6 +314,8 @@ def main() -> int:
         csv_logger.stop()
         if use_ocr and ocr:
             ocr.shutdown()
+        helmet_checker.shutdown()
+        pedestrian_detector.shutdown()
 
     # Output a gorgeous, highly-accurate final statistics summary
     final_counts = counter.get_counts()
@@ -235,22 +332,46 @@ def main() -> int:
     print("═" * 60)
     print(f" Logs saved to: {config.CSV_PATH}\n")
 
+    # ── Final per-vehicle report, appended to the SAME csv file ────────────
+    # Built from counter.counted_ids / counter.track_assigned_class, which
+    # (unlike the live plate/helmet dicts) are never purged mid-run, so this
+    # covers every vehicle actually counted across the whole video, not just
+    # whichever tracks happened to still be on screen at the final frame.
+    per_vehicle_rows = []
+    for track_id in sorted(counter.counted_ids):
+        vehicle_class = counter.track_assigned_class.get(track_id, "Unknown")
+        plate = ocr.get_plate(track_id) if use_ocr and ocr else None
+        helmet_status = "N/A"
+        if vehicle_class in config.TWO_WHEELER_CLASSES:
+            status = helmet_checker.all_two_wheeler_statuses.get(track_id, {})
+            helmet_status = status.get("rider_helmet", "unknown")
+        per_vehicle_rows.append({
+            "track_id": track_id,
+            "vehicle_class": vehicle_class,
+            "plate": plate or "not detected",
+            "helmet_status": helmet_status,
+        })
+
+    pedestrian_totals = {"total": 0, "males": 0, "females": 0, "children": 0, "unknown": 0}
+    for gender in _all_pedestrians_seen.values():
+        pedestrian_totals["total"] += 1
+        if gender == "male_adult":
+            pedestrian_totals["males"] += 1
+        elif gender == "female_adult":
+            pedestrian_totals["females"] += 1
+        elif gender == "child":
+            pedestrian_totals["children"] += 1
+        else:
+            pedestrian_totals["unknown"] += 1
+
+    csv_logger.write_final_report(
+        vehicle_counts=counter.get_counts(),
+        per_vehicle_rows=per_vehicle_rows,
+        pedestrian_totals=pedestrian_totals,
+    )
+    print(f" Final per-vehicle report appended to: {config.CSV_PATH}\n")
+
     return 0
-
-
-def _should_run_plate_pipeline(vehicle: TrackedVehicle, ocr) -> bool:
-    if vehicle.vehicle_class in config.NO_PLATE_CLASSES:
-        return False
-    if vehicle.vehicle_class not in config.PLATE_DETECTION_CLASSES:
-        return False
-    
-    # Check if the vehicle is large/close enough to have a readable license plate
-    x1, y1, x2, y2 = vehicle.bbox
-    bbox_height = y2 - y1
-    if bbox_height < config.MIN_VEHICLE_HEIGHT_FOR_OCR:
-        return False
-        
-    return ocr.needs_ocr(vehicle.track_id)
 
 
 if __name__ == "__main__":

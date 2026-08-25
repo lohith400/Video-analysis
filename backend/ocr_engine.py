@@ -108,6 +108,136 @@ class OCREngine:
         
         print(f"[OCREngine] Initialized on {device} with {max_workers} thread pool workers.")
 
+    def detect_plates_sync(
+        self,
+        frame: np.ndarray,
+        vehicles: List,  # List[TrackedVehicle] — kept as List to avoid importing tracker.py here
+    ) -> None:
+        """Detects plates on the CURRENT frame, synchronously, and assigns each
+        detection to the nearest vehicle by box overlap — mirrors the approach
+        already proven out in version-3.0's number3.py.
+
+        This replaces the old submit_vehicle_crop() / background-thread-pool
+        flow for the box's POSITION. That flow detected on an old, buffered
+        vehicle crop from a background thread (1-3 frames stale), which is
+        harmless for a fixed camera but breaks badly for a moving one: by the
+        time the result came back, the whole scene had panned, so the OCR
+        crop stopped being the plate at all — it was reading windshields,
+        signage, or empty road, which is what produced garbage plate text
+        like 'AO5R' or 'QS525' even after the box-drift fix.
+
+        Running detection on the live frame, every call, means the OCR crop
+        is always actually the plate (when one is visible), so both the box
+        position AND the OCR text quality are fixed by the same change.
+
+        Multi-frame TEXT voting (via ocr_history / best_plate_cluster) is
+        kept — that part was correct and still helps smooth over per-frame
+        OCR noise on a plate that IS being read correctly.
+        """
+        if not vehicles:
+            return
+
+        try:
+            results = self.detector.model.predict(
+                frame,
+                conf=config.PLATE_CONF_THRESHOLD,
+                iou=config.IOU_THRESHOLD,
+                imgsz=1280,
+                half=config.PLATE_USE_HALF,
+                device=self.device,
+                verbose=False,
+            )
+        except Exception as exc:
+            print(f"[OCREngine] Full-frame plate detection error: {exc}")
+            return
+
+        if not results or results[0].boxes is None or len(results[0].boxes) == 0:
+            return
+
+        boxes = results[0].boxes
+        xyxy = boxes.xyxy.cpu().numpy()
+        confs = boxes.conf.cpu().numpy()
+
+        # Assign each detected plate box to whichever vehicle box it overlaps
+        # most — same IoU-containment idea as number3.py's plate_belongs_to_vehicle.
+        for i in range(len(xyxy)):
+            px1, py1, px2, py2 = map(int, xyxy[i])
+            plate_conf = float(confs[i])
+
+            best_vehicle = None
+            best_overlap = 0.0
+            for v in vehicles:
+                vx1, vy1, vx2, vy2 = v.bbox
+                ix1, iy1 = max(px1, vx1), max(py1, vy1)
+                ix2, iy2 = min(px2, vx2), min(py2, vy2)
+                if ix2 <= ix1 or iy2 <= iy1:
+                    continue
+                inter = (ix2 - ix1) * (iy2 - iy1)
+                plate_area = max(1, (px2 - px1) * (py2 - py1))
+                overlap = inter / plate_area  # how much of the PLATE box sits inside this vehicle
+                if overlap > best_overlap:
+                    best_overlap = overlap
+                    best_vehicle = v
+
+            if best_vehicle is None or best_overlap < 0.5:
+                continue  # plate box doesn't clearly belong to any tracked vehicle this frame
+
+            track_id = best_vehicle.track_id
+            if not self.needs_ocr(track_id):
+                # Still update the box so it stays visually locked to the plate
+                # even after the text itself has been confirmed.
+                with self._lock:
+                    self.plate_boxes[track_id] = (px1, py1, px2, py2)
+                continue
+
+            plate_crop = frame[py1:py2, px1:px2]
+            if plate_crop.size == 0:
+                continue
+
+            text = self._read_plate_text(plate_crop)
+
+            with self._lock:
+                self.plate_boxes[track_id] = (px1, py1, px2, py2)
+                self.attempts[track_id] = self.attempts.get(track_id, 0) + 1
+
+                if text and config.MIN_PLATE_CHARS <= len(text) <= config.MAX_PLATE_CHARS:
+                    self.ocr_history.setdefault(track_id, [])
+                    self.ocr_history[track_id].append(text)
+                    if len(self.ocr_history[track_id]) > 10:
+                        self.ocr_history[track_id].pop(0)
+
+                    history = self.ocr_history[track_id]
+                    winner, count, total = best_plate_cluster(history)
+                    winner_corrected = clean_and_correct_indian_plate(winner) if winner else None
+                    winner_is_valid = bool(
+                        winner_corrected and INDIAN_PLATE_REGEX.match(winner_corrected)
+                    )
+                    display_text = winner_corrected if winner_corrected else winner
+
+                    if count >= 2:
+                        existing = self.results.get(track_id)
+                        existing_valid = existing and INDIAN_PLATE_REGEX.match(existing) is not None
+                        if not existing or (winner_is_valid and not existing_valid) or (
+                            not existing_valid and count > history.count(existing)
+                        ):
+                            self.results[track_id] = display_text
+
+    def _read_plate_text(self, plate_crop: np.ndarray) -> Optional[str]:
+        """Runs EasyOCR on an already-cropped plate image and returns cleaned text."""
+        try:
+            processed = preprocess_plate_for_ocr(plate_crop)
+            ocr_results = self.reader.readtext(processed, detail=1)
+            if not ocr_results:
+                return None
+            # Concatenate all detected text fragments (a plate can OCR as
+            # multiple boxes), highest-confidence-ordered.
+            ocr_results.sort(key=lambda r: -r[2])
+            raw_text = "".join(r[1] for r in ocr_results)
+            raw_text = re.sub(r"[^A-Za-z0-9]", "", raw_text).upper()
+            return raw_text if raw_text else None
+        except Exception:
+            return None
+
     def needs_ocr(self, track_id: int) -> bool:
         """Determines if a vehicle track requires more OCR attempts."""
         with self._lock:

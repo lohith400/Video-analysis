@@ -146,3 +146,57 @@ class CSVLogger:
             return "none"
         parts = [f"{tid}:{text}" for tid, text in sorted(plates.items())]
         return "|".join(parts)
+
+    def write_final_report(
+        self,
+        vehicle_counts: Dict[str, int],
+        per_vehicle_rows: List[Dict],
+        pedestrian_totals: Dict[str, int],
+    ) -> None:
+        """Appends a final summary report to the END of the same CSV file
+        that the per-second rows were written to — same file, not a new one.
+
+        Written as plain CSV rows (not a second header) so the file stays
+        parseable by any CSV reader: a few blank/marker rows separate this
+        section from the time-series rows above it, then three small tables:
+          1. total vehicles by class
+          2. total humans detected, by category
+          3. one row per vehicle actually counted this run, with its final
+             plate (if any) and, for two-wheelers, helmet status
+        """
+        with self._lock:
+            with open(config.CSV_PATH, "a", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+
+                writer.writerow([])
+                writer.writerow(["===== FINAL SESSION REPORT ====="])
+                writer.writerow([f"generated_at", datetime.now().isoformat(timespec="seconds")])
+
+                writer.writerow([])
+                writer.writerow(["-- Vehicle counts by class --"])
+                writer.writerow(["vehicle_class", "count"])
+                for cls, cnt in sorted(vehicle_counts.items()):
+                    if cls == "total":
+                        continue
+                    writer.writerow([cls, cnt])
+                writer.writerow(["TOTAL", vehicle_counts.get("total", 0)])
+
+                writer.writerow([])
+                writer.writerow(["-- Humans detected --"])
+                writer.writerow(["category", "count"])
+                writer.writerow(["total_people", pedestrian_totals.get("total", 0)])
+                writer.writerow(["males", pedestrian_totals.get("males", 0)])
+                writer.writerow(["females", pedestrian_totals.get("females", 0)])
+                writer.writerow(["children", pedestrian_totals.get("children", 0)])
+                writer.writerow(["unknown_gender", pedestrian_totals.get("unknown", 0)])
+
+                writer.writerow([])
+                writer.writerow(["-- Per-vehicle detail (every vehicle counted this run) --"])
+                writer.writerow(["track_id", "vehicle_class", "plate_number", "helmet_status"])
+                for row in per_vehicle_rows:
+                    writer.writerow([
+                        row["track_id"],
+                        row["vehicle_class"],
+                        row["plate"],
+                        row["helmet_status"],
+                    ])
