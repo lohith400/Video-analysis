@@ -190,7 +190,23 @@ class OCREngine:
                     self.plate_boxes[track_id] = (px1, py1, px2, py2)
                 continue
 
-            plate_crop = frame[py1:py2, px1:px2]
+            # Pad the crop before handing it to OCR. A YOLO box drawn tight to
+            # the plate's visible edge often clips the outermost 1-2
+            # characters (especially the leading state-code letters or
+            # trailing digits) — that's why plates were coming back as
+            # '9274' instead of 'KA05NM9274', or 'KA05H' instead of a full
+            # plate. Padding by ~12% of the box's own size on each side gives
+            # OCR a little breathing room without pulling in so much
+            # background that it starts reading bumper trim or shadows.
+            frame_h, frame_w = frame.shape[:2]
+            box_w, box_h = px2 - px1, py2 - py1
+            pad_x = max(4, int(box_w * 0.12))
+            pad_y = max(4, int(box_h * 0.25))
+            crop_x1 = max(0, px1 - pad_x)
+            crop_y1 = max(0, py1 - pad_y)
+            crop_x2 = min(frame_w, px2 + pad_x)
+            crop_y2 = min(frame_h, py2 + pad_y)
+            plate_crop = frame[crop_y1:crop_y2, crop_x1:crop_x2]
             if plate_crop.size == 0:
                 continue
 

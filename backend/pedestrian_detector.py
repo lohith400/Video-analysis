@@ -62,6 +62,7 @@ class PedestrianDetector:
         self.current_heights: Dict[int, int] = {}           # track_id -> height in px
         self.current_bboxes: Dict[int, Tuple[int, int, int, int]] = {} # track_id -> bbox
         self.avg_adult_height: float = 0.0
+        self._warned_unmapped_class: bool = False
 
     def should_check(self, track_id: int, frame_idx: int) -> bool:
         if self.model is None and not self.deepface_available:
@@ -134,13 +135,35 @@ class PedestrianDetector:
                     best_idx = int(results[0].boxes.conf.argmax().item())
                     cls_id = int(results[0].boxes.cls[best_idx].item())
                     cls_name = self.model.names[cls_id].lower()
-                    
-                    if "female" in cls_name:
+
+                    # Broadened from a "female"/"male"/"child"/"kid"-only
+                    # check: many Roboflow-style gender models label classes
+                    # "man"/"woman" or "boy"/"girl" instead, which don't
+                    # contain those substrings at all — that mismatch was
+                    # silently sending every detection to "unknown" with no
+                    # error anywhere, which is why males/females showed as
+                    # 0 in every CSV row even with the model loading fine.
+                    if "female" in cls_name or "woman" in cls_name or "girl" in cls_name:
                         gender = "female_adult"
-                    elif "male" in cls_name:
+                    elif "male" in cls_name or "man" in cls_name or "boy" in cls_name:
                         gender = "male_adult"
                     elif "child" in cls_name or "kid" in cls_name:
                         gender = "child"
+                    else:
+                        # Still didn't match anything — surface this loudly
+                        # exactly once so it's impossible to miss in the
+                        # console, instead of silently staying "unknown"
+                        # for the whole run.
+                        if not self._warned_unmapped_class:
+                            print(
+                                f"[PedestrianDetector] WARNING: gender model class "
+                                f"'{cls_name}' doesn't match any known label pattern "
+                                f"(female/woman/girl, male/man/boy, child/kid) — "
+                                f"every detection will read as 'unknown' until "
+                                f"pedestrian_detector.py's matching is updated for "
+                                f"this model's actual class names."
+                            )
+                            self._warned_unmapped_class = True
 
             elif self.deepface_available:
                 try:
