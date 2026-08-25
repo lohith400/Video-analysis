@@ -142,6 +142,7 @@ def main() -> int:
     t_prev = time.perf_counter()
 
     print("Press 'q' in the video window to quit.")
+    cv2.namedWindow(config.WINDOW_NAME, cv2.WINDOW_NORMAL)
 
     try:
         while True:
@@ -191,7 +192,20 @@ def main() -> int:
                 plate_boxes=plate_boxes,
             )
 
-            cv2.imshow(config.WINDOW_NAME, annotated)
+            # Auto-scale display to fit screen comfortably
+            h_disp, w_disp = annotated.shape[:2]
+            max_w, max_h = 1280, 720
+            scale = min(max_w / w_disp, max_h / h_disp, 1.0)
+            if scale < 1.0:
+                display_frame = cv2.resize(
+                    annotated,
+                    (int(w_disp * scale), int(h_disp * scale)),
+                    interpolation=cv2.INTER_AREA,
+                )
+            else:
+                display_frame = annotated
+
+            cv2.imshow(config.WINDOW_NAME, display_frame)
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
 
