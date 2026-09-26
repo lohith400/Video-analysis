@@ -1,202 +1,197 @@
-"""Background CSV logger — appends one row per second, never overwrites."""
-
-from __future__ import annotations
-
+import os
 import csv
-import threading
 import time
+import threading
 from datetime import datetime
-from typing import Callable, Dict, List
-
-import config
-
-CSV_HEADER = [
-    "timestamp",
-    "total_vehicles",
-    "cars",
-    "trucks",
-    "buses",
-    "auto_rickshaws",
-    "motorcycles",
-    "scooters",
-    "bicycles",
-    "plates_detected",
-    "helmet_violations",
-    "violation_details",
-    "pedestrians_detected",
-    "males",
-    "females",
-    "children",
-]
+from typing import Callable, Any, Dict, List, Optional
 
 
 class CSVLogger:
     def __init__(
         self,
-        counts_getter: Callable[[], Dict[str, int]],
-        plates_getter: Callable[[], Dict[int, str]],
-        violations_getter: Callable[[], List[Dict]] = None,
-        pedestrians_getter: Callable[[], Dict] = None,
+        output_path: str = "traffic_log.csv",
+        interval: float = 1.0,
+        counts_getter: Optional[Callable[[], Dict[str, Any]]] = None,
+        plates_getter: Optional[Callable[[], Any]] = None,
+        violations_getter: Optional[Callable[[], Any]] = None,
+        pedestrians_getter: Optional[Callable[[], Any]] = None,
+        **kwargs
     ):
-        self._counts_getter = counts_getter
-        self._plates_getter = plates_getter
-        self._violations_getter = violations_getter if violations_getter else (lambda: [])
-        self._pedestrians_getter = pedestrians_getter if pedestrians_getter else (lambda: {"total": 0, "males": 0, "females": 0, "children": 0})
-        self._running = False
-        self._thread: threading.Thread | None = None
-        self._lock = threading.Lock()
-        self._ensure_header()
+        self.output_path = output_path
+        self.interval = interval
+        self.counts_getter = counts_getter
+        self.plates_getter = plates_getter
+        self.violations_getter = violations_getter
+        self.pedestrians_getter = pedestrians_getter
 
-    def _ensure_header(self) -> None:
-        try:
-            with open(config.CSV_PATH, "r", encoding="utf-8") as f:
-                first = f.readline().strip()
-                if first and first.split(",")[0] == "timestamp":
-                    return
-        except FileNotFoundError:
-            pass
+        self.lock = threading.Lock()
+        self._stop_event = threading.Event()
+        self._thread: Optional[threading.Thread] = None
 
-        with open(config.CSV_PATH, "w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerow(CSV_HEADER)
+        self.fieldnames = [
+            "timestamp",
+            "total_vehicles",
+            "cars",
+            "trucks",
+            "buses",
+            "auto_rickshaws",
+            "motorcycles",
+            "scooters",
+            "bicycles",
+            "plates_detected",
+            "helmet_violations",
+            "violation_details",
+            "pedestrians_detected",
+            "males",
+            "females",
+            "children"
+        ]
 
-    def start(self) -> None:
-        self._running = True
-        self._thread = threading.Thread(target=self._run, daemon=True)
-        self._thread.start()
+        self._init_csv()
 
-    def stop(self) -> None:
-        self._running = False
-        if self._thread is not None:
-            self._thread.join(timeout=2.0)
+    def _init_csv(self):
+        with self.lock:
+            target_dir = os.path.dirname(os.path.abspath(self.output_path))
+            if target_dir:
+                os.makedirs(target_dir, exist_ok=True)
+            with open(self.output_path, mode="w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=self.fieldnames)
+                writer.writeheader()
 
-    def _run(self) -> None:
-        while self._running:
-            time.sleep(config.CSV_UPDATE_INTERVAL)
-            if not self._running:
-                break
-            self._append_row()
-
-    def _append_row(self) -> None:
-        counts = self._counts_getter()
-        plates = self._plates_getter()
-        plates_str = self._format_plates(plates)
-        
-        violations = self._violations_getter()
-        pedestrians = self._pedestrians_getter()
-
-        helmet_violations = len(violations)
-        violation_details = "none"
-        if violations:
-            violation_details = "|".join([f"{v['track_id']}:{v['plate']}:{v['violation_type']}" for v in violations])
-
-        pedestrians_detected = pedestrians.get("total", 0)
-        males = pedestrians.get("males", 0)
-        females = pedestrians.get("females", 0)
-        children = pedestrians.get("children", 0)
-
-        # Handle new TrafficCounter counts (capitalized mapped keys)
-        if "Car" in counts or "Bike/Motorcycle" in counts:
-            row = [
-                datetime.now().isoformat(timespec="seconds"),
-                counts.get("total", 0),
-                counts.get("Car", 0),
-                counts.get("Truck", 0),
-                counts.get("Bus", 0),
-                counts.get("Auto Rickshaw", 0),
-                counts.get("Bike/Motorcycle", 0),  # Merged motorcycles and scooters
-                0,                                 # Set scooters to 0 since they are merged
-                counts.get("Bicycle", 0),
-                plates_str,
-                helmet_violations,
-                violation_details,
-                pedestrians_detected,
-                males,
-                females,
-                children,
-            ]
-        else:
-            # Fallback to legacy raw counts
-            row = [
-                datetime.now().isoformat(timespec="seconds"),
-                counts.get("total", 0),
-                counts.get("car", 0),
-                counts.get("truck", 0),
-                counts.get("bus", 0),
-                counts.get("auto-rickshaw", 0),
-                counts.get("motorcycle", 0),
-                counts.get("scooter", 0),
-                counts.get("bicycle", 0),
-                plates_str,
-                helmet_violations,
-                violation_details,
-                pedestrians_detected,
-                males,
-                females,
-                children,
-            ]
-            
-        with self._lock:
-            with open(config.CSV_PATH, "a", newline="", encoding="utf-8") as f:
-                csv.writer(f).writerow(row)
-
-    @staticmethod
-    def _format_plates(plates: Dict[int, str]) -> str:
-        if not plates:
+    def _format_plates(self, raw_plates: Any) -> str:
+        if not raw_plates:
             return "none"
-        parts = [f"{tid}:{text}" for tid, text in sorted(plates.items())]
-        return "|".join(parts)
+        if isinstance(raw_plates, dict):
+            items = [f"{k}:{v}" for k, v in raw_plates.items() if v and v != "not detected"]
+            return "|".join(items) if items else "none"
+        if isinstance(raw_plates, list):
+            items = []
+            for p in raw_plates:
+                if isinstance(p, dict):
+                    tid = p.get("track_id", p.get("id", ""))
+                    txt = p.get("plate", p.get("text", ""))
+                    if txt and txt != "not detected":
+                        items.append(f"{tid}:{txt}" if tid else str(txt))
+                elif p and p != "not detected":
+                    items.append(str(p))
+            return "|".join(items) if items else "none"
+        return str(raw_plates)
+
+    def _format_violations(self, raw_violations: Any) -> tuple[int, str]:
+        if not raw_violations:
+            return 0, "none"
+        items = []
+        if isinstance(raw_violations, list):
+            for v in raw_violations:
+                if isinstance(v, dict):
+                    tid = v.get("track_id", v.get("id", "?"))
+                    vtype = v.get("violation", v.get("type", "no_helmet"))
+                    items.append(f"{tid}:{vtype}")
+                elif v and v != "none":
+                    items.append(str(v))
+        return len(items), ("|".join(items) if items else "none")
+
+    def log_snapshot(self):
+        counts = self.counts_getter() if self.counts_getter else {}
+        plates = self.plates_getter() if self.plates_getter else None
+        violations = self.violations_getter() if self.violations_getter else None
+        pedestrians = self.pedestrians_getter() if self.pedestrians_getter else {}
+
+        current_total = counts.get("total", counts.get("total_vehicles", 0))
+        if current_total == 0 and not plates and not violations:
+            return
+
+        v_count, v_details = self._format_violations(violations)
+        ped_count = pedestrians if isinstance(pedestrians, int) else (pedestrians.get("total", 0) if isinstance(pedestrians, dict) else 0)
+
+        row = {
+            "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+            "total_vehicles": current_total,
+            "cars": counts.get("Car", counts.get("cars", 0)),
+            "trucks": counts.get("Truck", counts.get("trucks", 0)),
+            "buses": counts.get("Bus", counts.get("buses", 0)),
+            "auto_rickshaws": counts.get("Auto Rickshaw", counts.get("auto_rickshaws", 0)),
+            "motorcycles": counts.get("Bike/Motorcycle", counts.get("motorcycles", counts.get("bike", 0))),
+            "scooters": counts.get("Scooter", counts.get("scooters", 0)),
+            "bicycles": counts.get("Bicycle", counts.get("bicycles", 0)),
+            "plates_detected": self._format_plates(plates),
+            "helmet_violations": v_count,
+            "violation_details": v_details,
+            "pedestrians_detected": ped_count,
+            "males": pedestrians.get("males", 0) if isinstance(pedestrians, dict) else 0,
+            "females": pedestrians.get("females", 0) if isinstance(pedestrians, dict) else 0,
+            "children": pedestrians.get("children", 0) if isinstance(pedestrians, dict) else 0
+        }
+
+        with self.lock:
+            with open(self.output_path, mode="a", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=self.fieldnames)
+                writer.writerow(row)
+
+    def _run_loop(self):
+        while not self._stop_event.is_set():
+            try:
+                self.log_snapshot()
+            except Exception:
+                pass
+            time.sleep(self.interval)
+
+    def start(self):
+        if self._thread is None or not self._thread.is_alive():
+            self._stop_event.clear()
+            self._thread = threading.Thread(target=self._run_loop, daemon=True)
+            self._thread.start()
+
+    def stop(self):
+        self._stop_event.set()
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=2.0)
 
     def write_final_report(
         self,
         vehicle_counts: Dict[str, int],
-        per_vehicle_rows: List[Dict],
-        pedestrian_totals: Dict[str, int],
-    ) -> None:
-        """Appends a final summary report to the END of the same CSV file
-        that the per-second rows were written to — same file, not a new one.
+        per_vehicle_rows: Optional[List[Dict[str, Any]]] = None,
+        pedestrian_totals: Optional[Dict[str, int]] = None,
+        *args,
+        **kwargs
+    ):
+        self.stop()
+        now_str = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
-        Written as plain CSV rows (not a second header) so the file stays
-        parseable by any CSV reader: a few blank/marker rows separate this
-        section from the time-series rows above it, then three small tables:
-          1. total vehicles by class
-          2. total humans detected, by category
-          3. one row per vehicle actually counted this run, with its final
-             plate (if any) and, for two-wheelers, helmet status
-        """
-        with self._lock:
-            with open(config.CSV_PATH, "a", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
+        with self.lock:
+            with open(self.output_path, mode="a", newline="", encoding="utf-8") as f:
+                f.write("\n===== FINAL SESSION REPORT =====\n")
+                f.write(f"generated_at,{now_str}\n\n")
 
-                writer.writerow([])
-                writer.writerow(["===== FINAL SESSION REPORT ====="])
-                writer.writerow([f"generated_at", datetime.now().isoformat(timespec="seconds")])
+                # Vehicle counts summary
+                f.write("-- Vehicle counts by class --\n")
+                f.write("vehicle_class,count\n")
+                total_v = 0
+                if vehicle_counts:
+                    for vclass, cnt in sorted(vehicle_counts.items()):
+                        if vclass.lower() in ["total", "total_counted"]:
+                            continue
+                        f.write(f"{vclass},{cnt}\n")
+                        total_v += cnt
+                f.write(f"TOTAL,{total_v}\n\n")
 
-                writer.writerow([])
-                writer.writerow(["-- Vehicle counts by class --"])
-                writer.writerow(["vehicle_class", "count"])
-                for cls, cnt in sorted(vehicle_counts.items()):
-                    if cls == "total":
-                        continue
-                    writer.writerow([cls, cnt])
-                writer.writerow(["TOTAL", vehicle_counts.get("total", 0)])
+                # Humans / Pedestrians summary
+                f.write("-- Humans detected --\n")
+                f.write("category,count\n")
+                if pedestrian_totals:
+                    for cat, cnt in pedestrian_totals.items():
+                        f.write(f"{cat},{cnt}\n")
+                else:
+                    f.write("total,0\nmales,0\nfemales,0\nchildren,0\nunknown,0\n")
+                f.write("\n")
 
-                writer.writerow([])
-                writer.writerow(["-- Humans detected --"])
-                writer.writerow(["category", "count"])
-                writer.writerow(["total_people", pedestrian_totals.get("total", 0)])
-                writer.writerow(["males", pedestrian_totals.get("males", 0)])
-                writer.writerow(["females", pedestrian_totals.get("females", 0)])
-                writer.writerow(["children", pedestrian_totals.get("children", 0)])
-                writer.writerow(["unknown_gender", pedestrian_totals.get("unknown", 0)])
-
-                writer.writerow([])
-                writer.writerow(["-- Per-vehicle detail (every vehicle counted this run) --"])
-                writer.writerow(["track_id", "vehicle_class", "plate_number", "helmet_status"])
-                for row in per_vehicle_rows:
-                    writer.writerow([
-                        row["track_id"],
-                        row["vehicle_class"],
-                        row["plate"],
-                        row["helmet_status"],
-                    ])
+                # Per-vehicle itemized list
+                f.write("-- Per-vehicle detail (every vehicle counted this run) --\n")
+                f.write("track_id,vehicle_class,plate_number,helmet_status\n")
+                if per_vehicle_rows:
+                    for item in per_vehicle_rows:
+                        tid = item.get("track_id", "")
+                        vcls = item.get("vehicle_class", "Unknown")
+                        plate = item.get("plate", "not detected")
+                        helmet = item.get("helmet_status", "N/A")
+                        f.write(f"{tid},{vcls},{plate},{helmet}\n")

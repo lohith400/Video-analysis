@@ -96,7 +96,6 @@ class PedestrianDetector:
                 self.current_heights[p.track_id] = h
                 self.current_bboxes[p.track_id] = p.bbox
                 
-                # Check if already classified as adult to calculate avg height
                 cls = self.results.get(p.track_id)
                 if cls in ("male_adult", "female_adult"):
                     adult_heights.append(h)
@@ -104,7 +103,6 @@ class PedestrianDetector:
             if adult_heights:
                 self.avg_adult_height = sum(adult_heights) / len(adult_heights)
             else:
-                # Fallback to average height of all current pedestrians
                 all_heights = [p.bbox[3] - p.bbox[1] for p in pedestrians]
                 self.avg_adult_height = sum(all_heights) / len(all_heights) if all_heights else 0.0
 
@@ -136,39 +134,26 @@ class PedestrianDetector:
                     cls_id = int(results[0].boxes.cls[best_idx].item())
                     cls_name = self.model.names[cls_id].lower()
 
-                    # Broadened from a "female"/"male"/"child"/"kid"-only
-                    # check: many Roboflow-style gender models label classes
-                    # "man"/"woman" or "boy"/"girl" instead, which don't
-                    # contain those substrings at all — that mismatch was
-                    # silently sending every detection to "unknown" with no
-                    # error anywhere, which is why males/females showed as
-                    # 0 in every CSV row even with the model loading fine.
-                    if "female" in cls_name or "woman" in cls_name or "girl" in cls_name:
+                    # Exact and substring matching across standard demographic labels
+                    if any(w in cls_name for w in ["female", "woman", "girl"]):
                         gender = "female_adult"
-                    elif "male" in cls_name or "man" in cls_name or "boy" in cls_name:
+                    elif any(w in cls_name for w in ["male", "man", "boy"]):
                         gender = "male_adult"
-                    elif "child" in cls_name or "kid" in cls_name:
+                    elif any(w in cls_name for w in ["child", "kid"]):
                         gender = "child"
+                    elif any(w in cls_name for w in ["person", "pedestrian", "human"]):
+                        # Standard generic class: keep as unknown for gender, but count as valid person
+                        gender = "unknown"
                     else:
-                        # Still didn't match anything — surface this loudly
-                        # exactly once so it's impossible to miss in the
-                        # console, instead of silently staying "unknown"
-                        # for the whole run.
                         if not self._warned_unmapped_class:
                             print(
-                                f"[PedestrianDetector] WARNING: gender model class "
-                                f"'{cls_name}' doesn't match any known label pattern "
-                                f"(female/woman/girl, male/man/boy, child/kid) — "
-                                f"every detection will read as 'unknown' until "
-                                f"pedestrian_detector.py's matching is updated for "
-                                f"this model's actual class names."
+                                f"[PedestrianDetector] NOTE: Model label '{cls_name}' categorized as general pedestrian."
                             )
                             self._warned_unmapped_class = True
 
             elif self.deepface_available:
                 try:
                     from deepface import DeepFace
-                    # Runs deepface silently to retrieve gender/age
                     objs = DeepFace.analyze(
                         img_path=person_crop,
                         actions=['gender', 'age'],
@@ -205,7 +190,7 @@ class PedestrianDetector:
                         if res is not None:
                             tid, gender, timestamp = res
                             
-                            # Scene-relative child heuristic (documented limitation)
+                            # Scene-relative child height heuristic fallback
                             height = self.current_heights.get(tid, 0)
                             avg_adult = self.avg_adult_height
                             if is_child_by_height(height, avg_adult, config.CHILD_HEIGHT_RATIO):

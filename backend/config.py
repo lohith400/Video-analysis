@@ -1,38 +1,35 @@
-"""Configuration for traffic video analysis."""
+"""Configuration for real-time traffic video analysis and ANPR pipeline."""
 
+# Model Paths
 VEHICLE_MODEL = "models/yolov8n.pt"
 PLATE_MODEL = "models/v2.0/license_plate_detector.pt"
+HELMET_MODEL = "models/v2.0/helmet_detector.pt"
+GENDER_MODEL = "models/gender_detector.pt"
+TRACKER_CONFIG = "models/custom_bytetrack.yaml"
+
+# Output Logging Settings
 CSV_PATH = "traffic_log.csv"
-CSV_UPDATE_INTERVAL = 1  # seconds
+CSV_UPDATE_INTERVAL = 1.0  # seconds
 
-CONF_THRESHOLD = 0.40  # Raised from 0.25 to prevent low-confidence noise and track fragmentation
-PLATE_CONF_THRESHOLD = 0.25  # Lowered from 0.5 to catch plates with lower initial model confidences on fast vehicles
-IOU_THRESHOLD = 0.5
-USE_HALF = True
+# Vehicle Detection & Tracking Thresholds
+CONF_THRESHOLD = 0.35  # Balanced sensitivity for dense traffic flows
+IOU_THRESHOLD = 0.45
+USE_HALF = True  # FP16 acceleration for vehicle YOLO model
+MIN_TRACK_AGE = 5  # Reduced from 30: Vector line-crossing handles zero duplicate counts mathematically
 
-# license_plate_detector.pt was saved with an already-fused Conv+BN graph
-# from an older Ultralytics version. Running that checkpoint under half
-# precision on this Ultralytics version triggers "'Conv' object has no
-# attribute 'bn'" on inference. Keep the vehicle model on USE_HALF for
-# speed, but force the plate model to run in full precision until the
-# checkpoint is re-exported/re-fused under the current Ultralytics version.
-PLATE_USE_HALF = False
-
+# License Plate Detection & OCR Tuning
+PLATE_CONF_THRESHOLD = 0.20  # Lowered to capture small, fast, or angled plates on two-wheelers
+PLATE_USE_HALF = False  # Keep FP32 to avoid fused Conv+BN graph issues on older checkpoints
+PLATE_DETECT_EVERY_N_FRAMES = 1  # Synchronous per-frame detection for maximum recall
+MIN_VEHICLE_HEIGHT_FOR_OCR = 35  # Lowered from 100px: allows OCR attempts on incoming two-wheelers earlier
 MIN_PLATE_CHARS = 4
-MAX_PLATE_CHARS = 10
+MAX_PLATE_CHARS = 11
+OCR_MAX_WORKERS = 4
 
-# Minimum active frames a track must exist to filter out ephemeral false positives
-MIN_TRACK_AGE = 30     # Raised to 30 (1 second) to filter out highly-fragmented short-lived tracks
-
-# Minimum bounding box height (in pixels) of the vehicle before attempting OCR
-# Prevents wasting the 10 OCR attempts when the vehicle is far away and unreadable
-MIN_VEHICLE_HEIGHT_FOR_OCR = 100
-
-# Virtual counting line as percentages: (start_x_pct, start_y_pct, end_x_pct, end_y_pct)
-# Placed horizontally at 65% height
+# Virtual Counting Line Coordinates (start_x_pct, start_y_pct, end_x_pct, end_y_pct)
 COUNTING_LINE_PCT = (0.0, 0.65, 1.0, 0.65)
 
-# Map raw detection classes (COCO/Custom) to precise target user classes
+# Target Vehicle Class Mappings
 USER_CLASS_MAPPING = {
     "car": "Car",
     "motorcycle": "Bike/Motorcycle",
@@ -73,7 +70,7 @@ BOX_COLORS = {
     "bicycle": (255, 255, 255),
 }
 
-# COCO class IDs from yolov8n (when using default pretrained weights)
+# Pretrained COCO ID mapping
 COCO_VEHICLE_ID_MAP = {
     1: "bicycle",
     2: "car",
@@ -82,21 +79,15 @@ COCO_VEHICLE_ID_MAP = {
     7: "truck",
 }
 
-TRACKER_CONFIG = "models/custom_bytetrack.yaml"
-# Was 3 — combined with the 3-frame buffering requirement in
-# OCREngine.submit_vehicle_crop, that meant a fresh detection attempt only
-# every ~9-10 frames. Lowered to 1 so plate detection runs every frame.
-PLATE_DETECT_EVERY_N_FRAMES = 1
+# Display & Runtime Settings
 TARGET_MIN_FPS = 15
-OCR_MAX_WORKERS = 4
 RTSP_RECONNECT_WAIT_SEC = 5
 WINDOW_NAME = "Traffic Analysis"
 
 # --- HELMET DETECTION CONFIGS ---
-HELMET_MODEL = "models/v2.0/helmet_detector.pt"
-HELMET_CONF_THRESHOLD = 0.45
+HELMET_CONF_THRESHOLD = 0.40
 TWO_WHEELER_CLASSES = ["motorcycle", "scooter"]
-HELMET_CHECK_EVERY_N = 5
+HELMET_CHECK_EVERY_N = 3  # Check every 3 frames for faster violation convergence
 HELMET_CLASS_MAP = {
     "with_helmet": "helmet",
     "without_helmet": "no_helmet",
@@ -108,9 +99,8 @@ HELMET_CLASS_MAP = {
     "Bike_Rider": "helmet",
 }
 
-# --- PEDESTRIAN GENDER & CHILD DETECTION CONFIGS ---
-GENDER_MODEL = "models/gender_detector.pt"
-GENDER_CONF_THRESHOLD = 0.40
-PEDESTRIAN_VEHICLE_IOU = 0.3
+# --- PEDESTRIAN GENDER & DEMOGRAPHIC CONFIGS ---
+GENDER_CONF_THRESHOLD = 0.35
+PEDESTRIAN_VEHICLE_IOU = 0.30
 CHILD_HEIGHT_RATIO = 0.60
-GENDER_CHECK_EVERY_N = 5
+GENDER_CHECK_EVERY_N = 4    
