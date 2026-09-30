@@ -109,8 +109,24 @@ RTSP_RECONNECT_WAIT_SEC = 5
 WINDOW_NAME = "Traffic Analysis"
 
 # --- HELMET DETECTION CONFIGS ---
-HELMET_CONF_THRESHOLD = 0.40
-TWO_WHEELER_CLASSES = ["motorcycle", "scooter"]
+HELMET_CONF_THRESHOLD = 0.30
+TWO_WHEELER_CLASSES = [
+    "motorcycle",
+    "scooter",
+    "bike/motorcycle",
+    "bike",
+    "two-wheeler",
+    "two_wheeler",
+    "moped",
+]
+
+
+def is_two_wheeler(v_class: str) -> bool:
+    """Bulletproof check for two-wheeler / bike / motorcycle / scooter classes."""
+    if not v_class:
+        return False
+    v = str(v_class).lower().strip()
+    return any(tw in v for tw in ["bike", "motorcycle", "scooter", "two-wheeler", "two_wheeler", "moped"])
 HELMET_CHECK_EVERY_N = 3  # Check every 3 frames for faster violation convergence
 HELMET_CLASS_MAP = {
     "with helmet": "helmet",

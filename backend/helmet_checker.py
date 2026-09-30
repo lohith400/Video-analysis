@@ -59,6 +59,8 @@ class HelmetChecker:
         # State tracking
         self.all_two_wheeler_statuses: Dict[int, Dict[str, Any]] = {}
         self.active_violations: Dict[int, Dict[str, Any]] = {}
+        self.all_time_violations: Dict[int, List[Dict[str, Any]]] = {}
+        self.violation_history: Set[int] = set()
         self.attempts: Dict[int, int] = {}
         self.pending_futures: Dict[int, Future] = {}
 
@@ -70,7 +72,8 @@ class HelmetChecker:
                 return False
             if frame_idx % config.HELMET_CHECK_EVERY_N != 0:
                 return False
-            if self.attempts.get(track_id, 0) >= 8:
+            # Check up to 20 times across the trajectory for high confidence
+            if self.attempts.get(track_id, 0) >= 20:
                 return False
             return True
 
@@ -214,16 +217,43 @@ class HelmetChecker:
                             viols = res["violations"]
 
                             if tid not in self.all_two_wheeler_statuses:
-                                self.all_two_wheeler_statuses[tid] = {}
+                                self.all_two_wheeler_statuses[tid] = {
+                                    "track_id": tid,
+                                    "plate": plate if (plate and plate != "UNKNOWN") else "not detected",
+                                    "vehicle_class": "Bike/Motorcycle",
+                                    "rider_helmet": r_status,
+                                    "pillion_helmet": p_status,
+                                    "timestamp": ts,
+                                    "has_violation": bool(viols),
+                                    "violations": list(viols),
+                                }
+                            else:
+                                cur = self.all_two_wheeler_statuses[tid]
+                                if plate and plate != "UNKNOWN" and cur.get("plate") in ("not detected", "UNKNOWN"):
+                                    cur["plate"] = plate
 
-                            self.all_two_wheeler_statuses[tid]["rider_helmet"] = r_status
-                            self.all_two_wheeler_statuses[tid]["pillion_helmet"] = p_status
-                            self.all_two_wheeler_statuses[tid]["timestamp"] = ts
-                            if plate != "UNKNOWN":
-                                self.all_two_wheeler_statuses[tid]["plate"] = plate
+                                # Persist definitive rider status
+                                if r_status == "no_helmet":
+                                    cur["rider_helmet"] = "no_helmet"
+                                    cur["has_violation"] = True
+                                elif r_status == "helmet" and cur.get("rider_helmet") != "no_helmet":
+                                    cur["rider_helmet"] = "helmet"
+
+                                # Persist definitive pillion status
+                                if p_status == "no_helmet":
+                                    cur["pillion_helmet"] = "no_helmet"
+                                    cur["has_violation"] = True
+                                elif p_status == "helmet" and cur.get("pillion_helmet") != "no_helmet":
+                                    cur["pillion_helmet"] = "helmet"
+                                elif p_status != "none" and cur.get("pillion_helmet") == "none":
+                                    cur["pillion_helmet"] = p_status
 
                             if viols:
                                 self.active_violations[tid] = viols
+                                self.all_time_violations[tid] = viols
+                                self.violation_history.add(tid)
+                                self.all_two_wheeler_statuses[tid]["has_violation"] = True
+                                self.all_two_wheeler_statuses[tid]["violations"] = viols
                             elif (r_status == "helmet" and p_status in ("helmet", "none")) and tid in self.active_violations:
                                 self.active_violations.pop(tid, None)
 
@@ -233,6 +263,11 @@ class HelmetChecker:
 
             for track_id in completed_ids:
                 self.pending_futures.pop(track_id, None)
+
+    def get_all_two_wheelers(self) -> Dict[int, Dict[str, Any]]:
+        """Returns a snapshot of all two-wheeler states recorded during the session."""
+        with self._lock:
+            return {tid: dict(info) for tid, info in self.all_two_wheeler_statuses.items()}
 
     def get_active_violations(self) -> List[Dict[str, Any]]:
         with self._lock:

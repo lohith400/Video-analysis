@@ -152,6 +152,8 @@ class CSVLogger:
         vehicle_counts: Dict[str, int],
         per_vehicle_rows: Optional[List[Dict[str, Any]]] = None,
         pedestrian_totals: Optional[Dict[str, int]] = None,
+        two_wheeler_rows: Optional[List[Dict[str, Any]]] = None,
+        recognized_plates_rows: Optional[List[Dict[str, Any]]] = None,
         *args,
         **kwargs
     ):
@@ -184,6 +186,32 @@ class CSVLogger:
                 else:
                     f.write("total,0\nmales,0\nfemales,0\nchildren,0\nunknown,0\n")
                 f.write("\n")
+
+                # Recognized license plates detail
+                if recognized_plates_rows:
+                    f.write("-- Recognized license plates detail --\n")
+                    f.write("track_id,vehicle_class,plate_number,confidence\n")
+                    for p in recognized_plates_rows:
+                        tid = p.get("track_id", "")
+                        vcls = p.get("vehicle_class", "Unknown")
+                        plate = p.get("plate", "")
+                        conf = p.get("confidence", "")
+                        f.write(f"{tid},{vcls},{plate},{conf}\n")
+                    f.write("\n")
+
+                # Two-wheeler helmet compliance detail
+                if two_wheeler_rows:
+                    f.write("-- Two-wheeler helmet compliance detail --\n")
+                    f.write("track_id,vehicle_class,plate_number,rider_helmet,pillion_helmet,verdict\n")
+                    for tw in two_wheeler_rows:
+                        tid = tw.get("track_id", "")
+                        vcls = tw.get("vehicle_class", "Bike/Motorcycle")
+                        plate = tw.get("plate", "not detected")
+                        r_h = tw.get("rider_helmet", "Unknown")
+                        p_h = tw.get("pillion_helmet", "None")
+                        verd = tw.get("verdict", "")
+                        f.write(f"{tid},{vcls},{plate},{r_h},{p_h},{verd}\n")
+                    f.write("\n")
 
                 # Per-vehicle itemized list
                 f.write("-- Per-vehicle detail (every vehicle counted this run) --\n")

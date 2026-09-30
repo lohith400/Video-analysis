@@ -75,30 +75,32 @@ def draw_annotations(
                 _draw_label_below(out, below_text, px1, py2, (0, 0, 255))
 
     # 5. Draw pedestrians
-    if pedestrians and "details" in pedestrians:
-        for p in pedestrians["details"]:
+    if pedestrians:
+        ped_items = pedestrians.get("details", []) if isinstance(pedestrians, dict) else (pedestrians if isinstance(pedestrians, list) else [])
+        for p in ped_items:
             if "bbox" in p:
                 px1, py1, px2, py2 = p["bbox"]
-                gender = p.get("gender", "unknown")
-                
-                if gender == "male_adult":
-                    color = (255, 0, 0)       # Blue (BGR: 255, 0, 0)
-                    label = "Male"
-                elif gender == "female_adult":
-                    color = (128, 0, 128)     # Purple (BGR: 128, 0, 128)
-                    label = "Female"
-                elif gender == "child":
-                    color = (0, 255, 255)     # Yellow (BGR: 0, 255, 255)
-                    label = "Child"
+                gender = str(p.get("gender", "unknown")).lower()
+                tid = p.get("track_id", "")
+
+                if any(w in gender for w in ["male", "man", "boy"]):
+                    color = (255, 140, 0)     # Bright Blue (BGR)
+                    label = f"Male #{tid}" if tid else "Male"
+                elif any(w in gender for w in ["female", "woman", "girl"]):
+                    color = (200, 0, 200)     # Magenta / Purple
+                    label = f"Female #{tid}" if tid else "Female"
+                elif any(w in gender for w in ["child", "kid"]):
+                    color = (0, 255, 255)     # Yellow
+                    label = f"Child #{tid}" if tid else "Child"
                 else:
-                    color = (255, 255, 255)   # White
-                    label = "Person"
-                    
+                    color = (240, 240, 240)   # Clean White / Gray
+                    label = f"Pedestrian #{tid}" if tid else "Pedestrian"
+
                 cv2.rectangle(out, (px1, py1), (px2, py2), color, 2)
                 _draw_label(out, label, px1, py1, color)
 
     # 3. Draw heads-up display (HUD)
-    _draw_hud(out, category_counts, fps, total_plates, counter)
+    _draw_hud(out, category_counts, fps, total_plates, counter, pedestrians=pedestrians)
     return out
 
 
@@ -144,7 +146,16 @@ def _draw_hud(
     fps: float,
     total_plates: int,
     counter: Optional["TrafficCounter"] = None,
+    pedestrians: Optional[Dict] = None,
 ) -> None:
+    ped_str = ""
+    if pedestrians and isinstance(pedestrians, dict):
+        p_tot = pedestrians.get("total", 0)
+        p_m = pedestrians.get("males", 0)
+        p_f = pedestrians.get("females", 0)
+        p_c = pedestrians.get("children", 0)
+        ped_str = f"Pedestrians: {p_tot} (M:{p_m} F:{p_f} C:{p_c})"
+
     if counter:
         # Use cumulative high-precision universal counts
         cum_counts = counter.get_counts()
@@ -156,6 +167,8 @@ def _draw_hud(
             f"Bicycles: {cum_counts.get('Bicycle', 0)} | Vans: {cum_counts.get('Van', 0)} | Others: {cum_counts.get('Others', 0)}",
             f"Plates detected (session): {total_plates}",
         ]
+        if ped_str:
+            lines.append(ped_str)
     else:
         # Fallback to legacy raw frame-by-frame counts
         lines = [
@@ -166,6 +179,8 @@ def _draw_hud(
             f"Scooter: {counts.get('scooter', 0)} | Bicycle: {counts.get('bicycle', 0)}",
             f"Plates detected (session): {total_plates}",
         ]
+        if ped_str:
+            lines.append(ped_str)
 
     font = cv2.FONT_HERSHEY_SIMPLEX
     scale = 0.55

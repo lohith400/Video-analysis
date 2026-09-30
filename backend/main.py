@@ -50,6 +50,9 @@ _latest_counts["total"] = 0
 # Persistent session log of every pedestrian track_id ever seen
 _all_pedestrians_seen: dict = {}
 
+# Persistent session log of every vehicle track_id ever seen -> vehicle_class
+_all_vehicle_classes: dict = {}
+
 
 def _get_counts_snapshot() -> dict:
     with _state_lock:
@@ -177,6 +180,8 @@ def main() -> int:
                 break
 
             vehicles = tracker.track(frame)
+            for v in vehicles:
+                _all_vehicle_classes[v.track_id] = v.vehicle_class
             
             # Update 2D vector line crossing metrics
             counter.update(vehicles, frame.shape)
@@ -200,22 +205,26 @@ def main() -> int:
             # ── Helmet checker (async thread pool)
             if helmet_checker is not None:
                 for v in vehicles:
-                    if v.vehicle_class in config.TWO_WHEELER_CLASSES:
+                    v_cls = counter.get_voted_class(v.track_id)
+                    raw_cls = v.vehicle_class
+                    if config.is_two_wheeler(raw_cls) or config.is_two_wheeler(v_cls):
                         with helmet_checker._lock:
                             if v.track_id not in helmet_checker.all_two_wheeler_statuses:
                                 plate_now = ocr.get_plate(v.track_id) if use_ocr and ocr else None
                                 helmet_checker.all_two_wheeler_statuses[v.track_id] = {
                                     "track_id": v.track_id,
-                                    "plate": plate_now or "UNKNOWN",
-                                    "vehicle_class": v.vehicle_class,
+                                    "plate": plate_now or "not detected",
+                                    "vehicle_class": v_cls if v_cls != "Others" else "Bike/Motorcycle",
                                     "rider_helmet": "unknown",
                                     "pillion_helmet": "none",
                                     "timestamp": _current_timestamp(),
+                                    "has_violation": False,
+                                    "violations": [],
                                 }
                         if helmet_checker.should_check(v.track_id, frame_idx):
                             plate = (ocr.get_plate(v.track_id) if use_ocr and ocr else None) or "UNKNOWN"
                             crop = crop_vehicle(frame, v.bbox)
-                            helmet_checker.submit(v.track_id, crop, v.vehicle_class, plate, _current_timestamp(), v.bbox)
+                            helmet_checker.submit(v.track_id, crop, raw_cls, plate, _current_timestamp(), v.bbox)
                 helmet_checker.drain_completed()
 
             # ── Pedestrian & demographic detector
@@ -263,7 +272,8 @@ def main() -> int:
             plate_boxes = ocr.get_all_plate_boxes() if use_ocr and ocr else {}
             total_plates = ocr.total_plates_detected if use_ocr and ocr else 0
             active_violations = helmet_checker.get_active_violations()
-            pedestrian_summary, _ = pedestrian_detector.get_current_pedestrians()
+            pedestrian_summary, pedestrian_details = pedestrian_detector.get_current_pedestrians()
+            pedestrians_data = {**pedestrian_summary, "details": pedestrian_details}
 
             annotated = draw_annotations(
                 frame,
@@ -275,7 +285,7 @@ def main() -> int:
                 counter=counter,
                 plate_boxes=plate_boxes,
                 violations=active_violations,
-                pedestrians=pedestrian_summary,
+                pedestrians=pedestrians_data,
             )
 
             # Auto-scale display to fit screen
@@ -325,24 +335,19 @@ def main() -> int:
 
     # ── Final per-vehicle report builder
     per_vehicle_rows = []
-    violation_track_ids = set()
-    with helmet_checker._lock:
-        violation_track_ids = set(helmet_checker.active_violations.keys())
-
     for track_id in sorted(counter.counted_ids):
         vehicle_class = counter.track_assigned_class.get(track_id, "Unknown")
         plate = ocr.get_plate(track_id) if use_ocr and ocr else None
         
         helmet_status = "N/A"
-        if vehicle_class in config.TWO_WHEELER_CLASSES:
+        if config.is_two_wheeler(vehicle_class):
             with helmet_checker._lock:
                 status_dict = helmet_checker.all_two_wheeler_statuses.get(track_id, {})
                 raw_h = str(status_dict.get("rider_helmet", "")).lower()
+                has_viol = status_dict.get("has_violation", False) or (track_id in helmet_checker.violation_history)
 
-            if "no_helmet" in raw_h or track_id in violation_track_ids:
-                helmet_status = "No Helmet"
-            elif "helmet" in raw_h:
-                helmet_status = "Helmet"
+            if "no_helmet" in raw_h or has_viol:
+                helmet_status = "VIOLATION (No Helmet)"
             else:
                 helmet_status = "Compliant"
 
@@ -353,25 +358,119 @@ def main() -> int:
             "helmet_status": helmet_status,
         })
 
-    pedestrian_totals = {"total": 0, "males": 0, "females": 0, "children": 0, "unknown": 0}
-    for gender in _all_pedestrians_seen.values():
-        pedestrian_totals["total"] += 1
-        if gender in ["male_adult", "male", "man", "boy"]:
-            pedestrian_totals["males"] += 1
-        elif gender in ["female_adult", "female", "woman", "girl"]:
-            pedestrian_totals["females"] += 1
-        elif gender in ["child", "kid"]:
-            pedestrian_totals["children"] += 1
-        else:
-            pedestrian_totals["unknown"] += 1
+    # ── 1. Recognized Plates table
+    all_detected_plates = ocr.get_all_plates() if use_ocr and ocr else {}
+    recognized_plates_rows = []
+    if all_detected_plates:
+        print("─" * 74)
+        print(" 🎯   ALL RECOGNIZED VEHICLE LICENSE PLATES (SESSION)")
+        print("─" * 74)
+        print(f" {'TRACK ID':<10} ║ {'VEHICLE CLASSIFICATION':<24} ║ {'NUMBER PLATE':<16} ║ {'CONFIDENCE'}")
+        print("─" * 74)
+        for tid in sorted(all_detected_plates.keys()):
+            plate_str = all_detected_plates[tid]
+            v_class = counter.get_voted_class(tid)
+            if v_class in ("Others", "Unknown") and tid in _all_vehicle_classes:
+                raw_cls = _all_vehicle_classes[tid]
+                v_class = config.USER_CLASS_MAPPING.get(raw_cls, raw_cls.title())
+            conf = ocr.plate_confidences.get(tid, 0.0)
+            conf_str = f"{conf * 100:.1f}%" if conf > 0 else "Confirmed"
+            recognized_plates_rows.append({
+                "track_id": tid,
+                "vehicle_class": v_class,
+                "plate": plate_str,
+                "confidence": conf_str,
+            })
+            tid_str = f"#{tid}"
+            print(f" {tid_str:<10} ║ {v_class:<24} ║ {plate_str:<16} ║ {conf_str}")
+        print("═" * 74 + "\n")
 
-    csv_logger.write_final_report(
-        vehicle_counts=counter.get_counts(),
-        per_vehicle_rows=per_vehicle_rows,
-        pedestrian_totals=pedestrian_totals,
-    )
-    print(f" Final per-vehicle report appended to: {config.CSV_PATH}\n")
+    # ── 2. Dedicated Two-Wheeler Helmet Compliance Table
+    two_wheelers = helmet_checker.get_all_two_wheelers()
+    for tid, raw_cls in _all_vehicle_classes.items():
+        v_cls = counter.get_voted_class(tid)
+        if config.is_two_wheeler(raw_cls) or config.is_two_wheeler(v_cls):
+            if tid not in two_wheelers:
+                plate_val = ocr.get_plate(tid) if use_ocr and ocr else None
+                two_wheelers[tid] = {
+                    "track_id": tid,
+                    "plate": plate_val or "not detected",
+                    "vehicle_class": v_cls if v_cls != "Others" else "Bike/Motorcycle",
+                    "rider_helmet": "unknown",
+                    "pillion_helmet": "none",
+                    "has_violation": False,
+                    "violations": [],
+                }
 
+    two_wheeler_rows = []
+    if two_wheelers:
+        print("─" * 94)
+        print(" 🏍️   TWO-WHEELER RIDERS & PILLIONS — HELMET COMPLIANCE REPORT")
+        print("─" * 94)
+        print(f" {'TRACK ID':<10} ║ {'VEHICLE TYPE':<18} ║ {'NUMBER PLATE':<16} ║ {'RIDER':<12} ║ {'PILLION':<10} ║ {'VERDICT'}")
+        print("─" * 94)
+        tw_violations = 0
+        tw_compliant = 0
+
+        for tid in sorted(two_wheelers.keys()):
+            info = two_wheelers[tid]
+            v_cls = counter.get_voted_class(tid)
+            if v_cls in ("Others", "Unknown"):
+                v_cls = info.get("vehicle_class", "Bike/Motorcycle")
+            plate_val = (ocr.get_plate(tid) if use_ocr and ocr else None) or info.get("plate", "not detected")
+            r_h = str(info.get("rider_helmet", "unknown")).lower()
+            p_h = str(info.get("pillion_helmet", "none")).lower()
+            has_viol = info.get("has_violation", False) or (tid in helmet_checker.violation_history)
+
+            if "no_helmet" in r_h:
+                rider_disp = "NO HELMET"
+            elif "helmet" in r_h:
+                rider_disp = "HELMET"
+            else:
+                rider_disp = "NO HELMET" if has_viol else "HELMET"
+
+            if "no_helmet" in p_h:
+                pillion_disp = "NO HELMET"
+            elif "helmet" in p_h:
+                pillion_disp = "HELMET"
+            else:
+                pillion_disp = "None"
+
+            if has_viol or "no_helmet" in r_h or "no_helmet" in p_h:
+                tw_violations += 1
+                if "no_helmet" in r_h and "no_helmet" in p_h:
+                    verdict_disp = "❌ VIOLATION (Rider + Pillion No Helmet)"
+                elif "no_helmet" in r_h:
+                    verdict_disp = "❌ VIOLATION (Rider No Helmet)"
+                elif "no_helmet" in p_h:
+                    verdict_disp = "❌ VIOLATION (Pillion No Helmet)"
+                else:
+                    verdict_disp = "❌ VIOLATION"
+            else:
+                tw_compliant += 1
+                if "helmet" in r_h and "helmet" in p_h:
+                    verdict_disp = "✅ COMPLIANT (Both Helmet)"
+                elif "helmet" in r_h:
+                    verdict_disp = "✅ COMPLIANT (Rider Helmet)"
+                else:
+                    verdict_disp = "✅ COMPLIANT"
+
+            two_wheeler_rows.append({
+                "track_id": tid,
+                "vehicle_class": v_cls,
+                "plate": plate_val,
+                "rider_helmet": rider_disp,
+                "pillion_helmet": pillion_disp,
+                "verdict": verdict_disp,
+            })
+            tid_str = f"#{tid}"
+            print(f" {tid_str:<10} ║ {v_cls:<18} ║ {plate_val:<16} ║ {rider_disp:<12} ║ {pillion_disp:<10} ║ {verdict_disp}")
+
+        print("─" * 94)
+        print(f" 🚨 Total Two-Wheelers: {len(two_wheelers)} | Helmet Violations: {tw_violations} | Compliant: {tw_compliant}")
+        print("═" * 94 + "\n")
+
+    # ── 3. Crossing line vehicles
     if per_vehicle_rows:
         print("─" * 68)
         print(" 📋   ITEMIZED VEHICLE LOG (CROSSING LINE)")
@@ -386,6 +485,19 @@ def main() -> int:
             print(f" {tid:<10} ║ {v_cls:<18} ║ {plt:<16} ║ {h_stat}")
         print("═" * 68 + "\n")
 
+    # ── 4. Pedestrian summary
+    pedestrian_totals = {"total": 0, "males": 0, "females": 0, "children": 0, "unknown": 0}
+    for gender in _all_pedestrians_seen.values():
+        pedestrian_totals["total"] += 1
+        if gender in ["male_adult", "male", "man", "boy"]:
+            pedestrian_totals["males"] += 1
+        elif gender in ["female_adult", "female", "woman", "girl"]:
+            pedestrian_totals["females"] += 1
+        elif gender in ["child", "kid"]:
+            pedestrian_totals["children"] += 1
+        else:
+            pedestrian_totals["unknown"] += 1
+
     if pedestrian_totals and pedestrian_totals.get("total", 0) > 0:
         print("─" * 68)
         print(" 🚶   PEDESTRIAN & DEMOGRAPHIC SUMMARY")
@@ -393,6 +505,15 @@ def main() -> int:
         for cat, cnt in pedestrian_totals.items():
             print(f" {cat.capitalize():<25} ║ {cnt:<20}")
         print("═" * 68 + "\n")
+
+    csv_logger.write_final_report(
+        vehicle_counts=counter.get_counts(),
+        per_vehicle_rows=per_vehicle_rows,
+        pedestrian_totals=pedestrian_totals,
+        two_wheeler_rows=two_wheeler_rows,
+        recognized_plates_rows=recognized_plates_rows,
+    )
+    print(f" Final per-vehicle report appended to: {config.CSV_PATH}\n")
 
     return 0
 
