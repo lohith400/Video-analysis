@@ -24,167 +24,26 @@ import PlateTable from "../components/PlateTable";
 import TwoWheelerSafetyTable from "../components/TwoWheelerSafetyTable";
 import ViolationList from "../components/ViolationList";
 import AlertBanner from "../components/AlertBanner";
+import SessionReportView from "../components/SessionReportView";
+import PedestrianDemographics from "../components/PedestrianDemographics";
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import { api, wsUrlWithAuth } from "../api";
 const RECONNECT_DELAY_MS = 3000;
 const MAX_RECONNECTS     = 10;
 
 // ── Overall Video Summary Panel (Daylight Glass Edition) ───────────────────
-function VideoSummaryPanel({ summary }) {
-  const { counts, plates, violations, pedestrians, two_wheeler_statuses } = summary;
-  const total = counts?.total ?? 0;
-  
-  // Custom filter to display positive detections
-  const vehicleRows = Object.entries(counts || {}).filter(
-    ([k]) => k !== "total" && (counts[k] ?? 0) > 0
-  );
+function VideoSummaryPanel({ summary, onBack }) {
+  if (!summary) return null;
+  const reportData = {
+    generatedAt: summary.generatedAt || new Date().toISOString(),
+    vehicleCounts: summary.counts || {},
+    humans: summary.pedestrians || { total: 0, males: 0, females: 0, children: 0, unknown: 0 },
+    plates: summary.plates || [],
+    twoWheelers: summary.two_wheeler_statuses || [],
+    perVehicle: summary.per_vehicle || []
+  };
 
-  return (
-    <motion.div
-      className="glass-card rounded-2xl p-5 border-glow-pulse"
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.4 }}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4 pb-3 border-b border-sky-border/30">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-            <Check className="w-4 h-4" />
-          </div>
-          <div>
-            <h3 className="font-heading font-extrabold text-sm text-sky-dark uppercase">Session Finished</h3>
-            <p className="text-[9px] text-sky-dark/45 font-mono uppercase">Batch processing completed</p>
-          </div>
-        </div>
-        <span className="px-3 py-1 rounded-full text-xs font-heading font-extrabold bg-sky-default text-sky-lightest shadow-sm shadow-sky-default/10">
-          {total} VEHICLES TOTAL
-        </span>
-      </div>
-
-      {/* Vehicle breakdown */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        {vehicleRows.length > 0 ? vehicleRows.map(([cls, count]) => (
-          <div
-            key={cls}
-            className="flex items-center gap-3 p-3 bg-white/50 border border-sky-border/40 rounded-xl shadow-sm"
-          >
-            <div className="w-10 h-10 rounded-lg bg-sky-surface flex items-center justify-center text-xl shadow-inner">
-              {cls === "car" ? "🚗" : cls === "truck" ? "🚛" : cls === "bus" ? "🚌" : cls === "motorcycle" ? "🏍️" : cls === "scooter" ? "🛵" : cls === "bicycle" ? "🚲" : "🛺"}
-            </div>
-            <div>
-              <div className="font-mono text-xl font-extrabold text-sky-default leading-tight">
-                {count}
-              </div>
-              <div className="text-[10px] font-heading font-bold text-sky-dark/60 uppercase tracking-wide">{cls}</div>
-            </div>
-          </div>
-        )) : (
-          <div className="col-span-2 text-xs text-center py-8 font-heading font-bold text-sky-dark/40 uppercase">
-            No vehicle crossings tracked
-          </div>
-        )}
-      </div>
-
-      {/* Plates Detected Overall */}
-      <div className="border-t border-sky-border/30 pt-4">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-heading font-extrabold text-sky-dark uppercase tracking-wide">
-            Unique Plate Identifiers
-          </span>
-          <span className="px-2 py-0.5 rounded-md font-mono text-xs font-bold bg-sky-default text-sky-lightest">
-            {plates?.length ?? 0}
-          </span>
-        </div>
-        {plates && plates.length > 0 ? (
-          <div className="grid grid-cols-3 gap-1.5 max-h-[140px] overflow-y-auto pr-1">
-            {plates.map((p, i) => (
-              <div
-                key={i}
-                className="px-2.5 py-1.5 rounded-lg bg-white/40 border border-sky-border/30 text-center shadow-sm"
-              >
-                <span className="font-mono text-[10px] font-bold text-sky-default uppercase tracking-wider">
-                  {p.plate}
-                </span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-xs font-medium text-sky-dark/40 text-center py-4">No plates detected</p>
-        )}
-      </div>
-
-      {/* Two-Wheeler Safety Log */}
-      <div className="border-t border-sky-border/30 pt-4 mt-4">
-        <TwoWheelerSafetyTable statuses={two_wheeler_statuses || []} />
-      </div>
-
-      {/* Violations Summary */}
-      <div className="border-t border-sky-border/30 pt-4 mt-4">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-heading font-extrabold text-sky-dark uppercase tracking-wide">
-            Helmet Violations Mapped
-          </span>
-          <span className={`px-2 py-0.5 rounded-full font-mono text-xs font-bold text-white ${violations && violations.length > 0 ? "bg-red-500 animate-pulse" : "bg-sky-border/40 text-sky-dark/40"}`}>
-            {violations?.length ?? 0}
-          </span>
-        </div>
-        {violations && violations.length > 0 ? (
-          <div className="grid grid-cols-2 gap-2 max-h-[120px] overflow-y-auto pr-1">
-            {violations.map((v, i) => (
-              <div
-                key={i}
-                className="px-2 py-1.5 rounded-lg bg-red-50/20 border border-red-100/50 shadow-sm flex items-center justify-between"
-              >
-                <span className="font-mono text-[9px] font-bold text-sky-dark uppercase">
-                  ID: {v.track_id} | {v.plate || "UNKNOWN"}
-                </span>
-                <span className="text-[8px] font-heading font-extrabold text-red-500 uppercase">
-                  {v.violation_type?.replace("no_helmet", "No Helmet").replace("_", " ")}
-                </span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-[10px] font-heading font-extrabold text-emerald-600 text-center py-2 uppercase bg-emerald-50/10 rounded-lg">
-            No helmet violations detected
-          </p>
-        )}
-      </div>
-
-      {/* Pedestrians Summary */}
-      <div className="border-t border-sky-border/30 pt-4 mt-4">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-heading font-extrabold text-sky-dark uppercase tracking-wide">
-            Pedestrians Logged
-          </span>
-          <span className="px-2 py-0.5 rounded-full font-mono text-xs font-bold bg-sky-default text-white">
-            {pedestrians?.total ?? 0}
-          </span>
-        </div>
-        {pedestrians && pedestrians.total > 0 ? (
-          <div className="grid grid-cols-3 gap-2">
-            <div className="p-2 rounded-lg bg-blue-50/20 text-center">
-              <div className="text-[8px] font-heading font-bold text-sky-dark/40 uppercase">Males</div>
-              <div className="font-mono text-xs font-bold text-blue-600">{pedestrians.males ?? 0}</div>
-            </div>
-            <div className="p-2 rounded-lg bg-purple-50/20 text-center">
-              <div className="text-[8px] font-heading font-bold text-sky-dark/40 uppercase">Females</div>
-              <div className="font-mono text-xs font-bold text-purple-600">{pedestrians.females ?? 0}</div>
-            </div>
-            <div className={`p-2 rounded-lg text-center ${pedestrians.children > 0 ? "bg-amber-50" : "bg-yellow-50/20"}`}>
-              <div className="text-[8px] font-heading font-bold text-sky-dark/40 uppercase">Children</div>
-              <div className="font-mono text-xs font-bold text-amber-600">{pedestrians.children ?? 0}</div>
-            </div>
-          </div>
-        ) : (
-          <p className="text-[10px] font-heading font-extrabold text-sky-dark/40 text-center py-2 uppercase">
-            No pedestrians detected
-          </p>
-        )}
-      </div>
-    </motion.div>
-  );
+  return <SessionReportView report={reportData} onBack={onBack} />;
 }
 
 // ── Live Panel (Command Center daylight widget) ───────────────────────────
@@ -216,6 +75,11 @@ function LivePanel({ counts, plates, twoWheelerStatuses, violations, pedestrians
         <TwoWheelerSafetyTable statuses={twoWheelerStatuses} />
       </div>
 
+      {/* Pedestrians Demographic Section */}
+      <div className="glass-card rounded-2xl p-4 shadow-sm">
+        <PedestrianDemographics data={pedestrians} />
+      </div>
+
       {/* Helmet Violations Section */}
       <div className="glass-card rounded-2xl p-4 shadow-sm">
         <div className="flex items-center justify-between mb-3">
@@ -228,7 +92,7 @@ function LivePanel({ counts, plates, twoWheelerStatuses, violations, pedestrians
         </div>
         
         {violations && violations.length > 0 ? (
-          <div className="flex flex-col gap-2 max-h-[220px] overflow-y-auto pr-1">
+          <div className="flex flex-col gap-2 max-h-[220px] overflow-y-auto pr-1 custom-scrollbar">
             {violations.map((v, i) => {
               const formattedTime = v.timestamp ? new Date(v.timestamp).toLocaleTimeString() : "";
               return (
@@ -260,43 +124,6 @@ function LivePanel({ counts, plates, twoWheelerStatuses, violations, pedestrians
             </span>
           </div>
         )}
-      </div>
-
-      {/* Pedestrians Section */}
-      <div className="glass-card rounded-2xl p-4 shadow-sm">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-heading font-extrabold text-xs text-sky-dark uppercase tracking-wider flex items-center gap-1.5">
-            🚶 Pedestrians
-          </h3>
-          <span className="px-2 py-0.5 rounded-full font-mono text-xs font-bold bg-sky-default text-white">
-            {pedestrians?.total ?? 0}
-          </span>
-        </div>
-        
-        <div className="grid grid-cols-3 gap-2.5">
-          {/* Males */}
-          <div className="flex flex-col items-center p-2.5 bg-blue-50/20 border border-blue-100/30 rounded-xl shadow-sm text-center">
-            <span className="text-lg">👨</span>
-            <span className="text-[9px] font-heading font-bold text-sky-dark/50 uppercase mb-1">Males</span>
-            <span className="font-mono text-lg font-extrabold text-blue-600">{pedestrians?.males ?? 0}</span>
-          </div>
-          {/* Females */}
-          <div className="flex flex-col items-center p-2.5 bg-purple-50/20 border border-purple-100/30 rounded-xl shadow-sm text-center">
-            <span className="text-lg">👩</span>
-            <span className="text-[9px] font-heading font-bold text-sky-dark/50 uppercase mb-1">Females</span>
-            <span className="font-mono text-lg font-extrabold text-purple-600">{pedestrians?.females ?? 0}</span>
-          </div>
-          {/* Children */}
-          <div className={`flex flex-col items-center p-2.5 border rounded-xl shadow-sm text-center transition-all duration-300 ${
-            pedestrians?.children > 0 
-              ? "bg-amber-100/50 border-amber-300 animate-pulse animate-duration-1000" 
-              : "bg-yellow-50/20 border-yellow-100/30"
-          }`}>
-            <span className="text-lg">🧒</span>
-            <span className="text-[9px] font-heading font-bold text-sky-dark/50 uppercase mb-1">Children</span>
-            <span className="font-mono text-lg font-extrabold text-amber-600">{pedestrians?.children ?? 0}</span>
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -620,7 +447,18 @@ export default function LiveAnalysis() {
     error: "⚠ PIPELINE ERROR",
   }[wsStatus] ?? "○ OFFLINE";
 
+  const [activeTabMode, setActiveTabMode] = useState("auto"); // "auto" | "live" | "report"
   const showSummary = mode === "video" && !!videoSummary && !videoProcessing;
+  const isSummaryActive = activeTabMode === "report" || (activeTabMode === "auto" && showSummary);
+
+  const activeReport = {
+    generatedAt: videoSummary?.generatedAt || new Date().toISOString(),
+    vehicleCounts: videoSummary?.counts || counts || {},
+    humans: videoSummary?.pedestrians || pedestrians || { total: 0, males: 0, females: 0, children: 0, unknown: 0 },
+    plates: videoSummary?.plates || plates || [],
+    twoWheelers: videoSummary?.two_wheeler_statuses || twoWheelerStatuses || [],
+    perVehicle: videoSummary?.per_vehicle || []
+  };
 
   return (
     <div className="min-h-[calc(100vh-69px)] py-6 px-6 relative bg-sky-lightest select-none">
@@ -787,9 +625,47 @@ export default function LiveAnalysis() {
           {/* RIGHT COLUMN: Stats & Controls (40% / 4 Cols) */}
           <div className="lg:col-span-4 flex flex-col gap-4">
 
-            {showSummary ? (
+            {/* Mode Switcher Pill: Real-Time vs Session Report */}
+            <div className="flex rounded-xl p-1 bg-white/60 border border-sky-border/40 shadow-inner">
+              <button
+                type="button"
+                onClick={() => setActiveTabMode("live")}
+                className={`flex-1 py-1.5 rounded-lg text-[10px] font-heading font-extrabold uppercase transition-all duration-200 flex items-center justify-center gap-1.5 ${
+                  !isSummaryActive
+                    ? "bg-sky-default text-white shadow-sm"
+                    : "text-sky-dark/60 hover:text-sky-dark"
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-emerald-400 animate-pulse" : "bg-sky-border"}`} />
+                Real-Time Telemetry
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTabMode("report")}
+                className={`flex-1 py-1.5 rounded-lg text-[10px] font-heading font-extrabold uppercase transition-all duration-200 flex items-center justify-center gap-1.5 ${
+                  isSummaryActive
+                    ? "bg-sky-default text-white shadow-sm"
+                    : "text-sky-dark/60 hover:text-sky-dark"
+                }`}
+              >
+                <span>📋</span>
+                Session Report
+                {(plates.length > 0 || (twoWheelerStatuses && twoWheelerStatuses.length > 0)) && (
+                  <span className={`px-1.5 py-0.2 rounded-full text-[8px] font-mono font-bold ${
+                    isSummaryActive ? "bg-white/25 text-white" : "bg-sky-default/10 text-sky-default"
+                  }`}>
+                    {plates.length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {isSummaryActive ? (
               /* Session finalized report summary */
-              <VideoSummaryPanel summary={videoSummary} />
+              <SessionReportView 
+                report={activeReport} 
+                onBack={() => setActiveTabMode("live")} 
+              />
             ) : (
               /* Active frame counting stats modules */
               <LivePanel
