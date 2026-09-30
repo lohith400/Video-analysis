@@ -277,15 +277,15 @@ export default function LiveAnalysis() {
 
           if (Array.isArray(data.plates) && data.plates.length > 0) {
             setPlates((prev) => {
-              const seen  = new Set(prev.map((p) => p.plate));
-              const fresh = data.plates
-                .map((p) =>
-                  typeof p === "string"
-                    ? { plate: p, timestamp: Date.now() }
-                    : { plate: p.plate, timestamp: p.timestamp || Date.now() }
-                )
-                .filter((p) => !seen.has(p.plate));
-              return fresh.length ? [...fresh, ...prev].slice(0, 200) : prev;
+              const map = new Map(prev.map(p => [p.plate, p]));
+              for (const p of data.plates) {
+                const key = typeof p === "string" ? p : p.plate;
+                const item = typeof p === "string" 
+                  ? { plate: p, timestamp: Date.now() } 
+                  : { ...p, timestamp: p.timestamp || Date.now() };
+                map.set(key, item);
+              }
+              return Array.from(map.values()).slice(-200);
             });
           }
 
@@ -303,16 +303,13 @@ export default function LiveAnalysis() {
             setPedestrians(data.pedestrians);
           }
 
-          if (Array.isArray(data.two_wheeler_statuses)) {
+          if (Array.isArray(data.two_wheeler_statuses) && data.two_wheeler_statuses.length > 0) {
             setTwoWheelerStatuses((prev) => {
-              const updated = prev.map(s => {
-                const latest = data.two_wheeler_statuses.find(u => u.track_id === s.track_id);
-                return latest ? latest : s;
-              });
-              const fresh = data.two_wheeler_statuses.filter(
-                (s) => !prev.some((p) => p.track_id === s.track_id)
-              );
-              return [...updated, ...fresh];
+              const map = new Map(prev.map(s => [s.track_id, s]));
+              for (const s of data.two_wheeler_statuses) {
+                map.set(s.track_id, { ...(map.get(s.track_id) || {}), ...s });
+              }
+              return Array.from(map.values());
             });
           }
 
@@ -326,14 +323,20 @@ export default function LiveAnalysis() {
             };
             setVideoSummary(mappedSummary);
 
-            if (Array.isArray(data.video_summary.plates)) {
+            if (Array.isArray(data.video_summary.plates) && data.video_summary.plates.length > 0) {
               setPlates(data.video_summary.plates);
             }
             if (data.video_summary.counts) {
               setCounts(mappedSummary.counts);
             }
-            if (Array.isArray(data.video_summary.two_wheeler_statuses)) {
+            if (Array.isArray(data.video_summary.two_wheeler_statuses) && data.video_summary.two_wheeler_statuses.length > 0) {
               setTwoWheelerStatuses(data.video_summary.two_wheeler_statuses);
+            }
+            if (data.video_summary.pedestrians) {
+              setPedestrians(data.video_summary.pedestrians);
+            }
+            if (Array.isArray(data.video_summary.violations)) {
+              setViolations(data.video_summary.violations);
             }
           } else {
             setVideoProcessing(true);
@@ -343,26 +346,40 @@ export default function LiveAnalysis() {
 
             if (Array.isArray(data.plates) && data.plates.length > 0) {
               setPlates((prev) => {
-                const seen  = new Set(prev.map((p) => p.plate));
-                const fresh = data.plates
-                  .map((p) =>
-                    typeof p === "string"
-                      ? { plate: p, timestamp: Date.now() }
-                      : { plate: p.plate, timestamp: p.timestamp || Date.now() }
-                  )
-                  .filter((p) => !seen.has(p.plate));
-                return fresh.length ? [...fresh, ...prev].slice(0, 200) : prev;
+                const map = new Map(prev.map(p => [p.plate, p]));
+                for (const p of data.plates) {
+                  const key = typeof p === "string" ? p : p.plate;
+                  const item = typeof p === "string" 
+                    ? { plate: p, timestamp: Date.now() } 
+                    : { ...p, timestamp: p.timestamp || Date.now() };
+                  map.set(key, item);
+                }
+                return Array.from(map.values()).slice(-200);
               });
             }
 
             if (Array.isArray(data.violations)) {
-              setViolations(data.violations);
+              setViolations((prev) => {
+                const map = new Map(prev.map(v => [`${v.track_id}_${v.violation_type}`, v]));
+                for (const v of data.violations) {
+                  map.set(`${v.track_id}_${v.violation_type}`, v);
+                }
+                return Array.from(map.values());
+              });
             }
+
             if (data.pedestrians) {
               setPedestrians(data.pedestrians);
             }
-            if (Array.isArray(data.two_wheeler_statuses)) {
-              setTwoWheelerStatuses(data.two_wheeler_statuses);
+
+            if (Array.isArray(data.two_wheeler_statuses) && data.two_wheeler_statuses.length > 0) {
+              setTwoWheelerStatuses((prev) => {
+                const map = new Map(prev.map(s => [s.track_id, s]));
+                for (const s of data.two_wheeler_statuses) {
+                  map.set(s.track_id, { ...(map.get(s.track_id) || {}), ...s });
+                }
+                return Array.from(map.values());
+              });
             }
           }
         }
@@ -416,16 +433,53 @@ export default function LiveAnalysis() {
   };
 
   const handleExportCSV = () => {
-    const data = videoSummary ? videoSummary.plates : plates;
-    if (!data?.length) return;
-    const rows = [
-      ["#", "Plate Number", "Timestamp"],
-      ...data.map((p, i) => [i + 1, p.plate, new Date(p.timestamp || Date.now()).toISOString()]),
-    ];
-    const blob = new Blob([rows.map((r) => r.join(",")).join("\n")], { type: "text/csv" });
+    const reportData = activeReport;
+    const lines = [];
+
+    lines.push("===== FINAL SESSION REPORT =====");
+    lines.push(`generated ${reportData.generatedAt || new Date().toISOString()}`);
+    lines.push("");
+
+    // 1. Vehicle counts
+    lines.push("-- Vehicle counts by class --");
+    lines.push("vehicle_class,count");
+    const countsMap = reportData.vehicleCounts || {};
+    const vehicleClasses = ["car", "motorcycle", "auto_rickshaw", "bus", "truck", "bicycle", "others"];
+    vehicleClasses.forEach(cls => {
+      lines.push(`${cls.replace("_", "-")},${countsMap[cls] ?? 0}`);
+    });
+    lines.push(`TOTAL,${countsMap.total ?? 0}`);
+    lines.push("");
+
+    // 2. Humans detected
+    lines.push("-- Humans detected --");
+    lines.push("category,count");
+    const hum = reportData.humans || {};
+    lines.push(`total,${hum.total ?? 0}`);
+    lines.push(`males,${hum.males ?? 0}`);
+    lines.push(`females,${hum.females ?? 0}`);
+    lines.push(`children,${hum.children ?? 0}`);
+    lines.push("");
+
+    // 3. Two-Wheeler Safety
+    lines.push("-- Two-wheeler helmet compliance --");
+    lines.push("track_id,vehicle_type,number_plate,rider_helmet,pillion_helmet,verdict");
+    (reportData.twoWheelers || []).forEach(tw => {
+      lines.push(`"#${tw.track_id}","${tw.vehicle_class || "Two-Wheeler"}","${tw.plate || "not detected"}","${tw.rider_helmet || "unknown"}","${tw.pillion_helmet || "none"}","${tw.verdict || (tw.has_violation ? "VIOLATION" : "COMPLIANT")}"`);
+    });
+    lines.push("");
+
+    // 4. Recognized Plates
+    lines.push("-- All recognized license plates --");
+    lines.push("track_id,vehicle_type,number_plate,confidence");
+    (reportData.plates || []).forEach(p => {
+      lines.push(`"#${p.track_id || "N/A"}","${p.vehicle_class || "Vehicle"}","${p.plate}","${p.confidence ? p.confidence + "%" : "Confirmed"}"`);
+    });
+
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
     const a = Object.assign(document.createElement("a"), {
       href: URL.createObjectURL(blob),
-      download: `plate_detections_${Date.now()}.csv`,
+      download: `iris_traffic_report_${Date.now()}.csv`,
     });
     a.click();
   };

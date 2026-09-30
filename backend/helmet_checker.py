@@ -269,6 +269,11 @@ class HelmetChecker:
         with self._lock:
             return {tid: dict(info) for tid, info in self.all_two_wheeler_statuses.items()}
 
+    def get_two_wheeler_statuses(self) -> List[Dict[str, Any]]:
+        """Returns a list of all two-wheeler status objects."""
+        with self._lock:
+            return list(self.all_two_wheeler_statuses.values())
+
     def get_active_violations(self) -> List[Dict[str, Any]]:
         with self._lock:
             all_v = []

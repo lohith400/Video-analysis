@@ -264,6 +264,7 @@ def _run_analysis(source, source_type: str) -> None:
     # Initialize high-precision line-crossing counter
     from traffic_counter import TrafficCounter
     counter = TrafficCounter()
+    _all_pedestrians_seen: Dict[int, str] = {}
 
     print(f"[server] ▶ Analysis started — source={source!r}  type={source_type}")
 
@@ -294,35 +295,20 @@ def _run_analysis(source, source_type: str) -> None:
             # Retrieve cumulative statistics
             counts = counter.get_counts()
 
-            # ── Plate OCR ───────────────────────────────────────────────────
+            # ── Plate OCR (Synchronous batch detection matching main.py) ────
             plates_map: Dict[int, str] = {}
             plate_boxes_map: Dict[int, tuple] = {}
             if _ocr is not None:
                 if frame_idx % config.PLATE_DETECT_EVERY_N_FRAMES == 0:
-                    for v in vehicles:
-                        # Only run OCR if the vehicle crop is large/close enough
-                        x1, y1, x2, y2 = v.bbox
-                        bbox_height = y2 - y1
-                        if bbox_height < config.MIN_VEHICLE_HEIGHT_FOR_OCR:
-                            continue
-
-                        if (
-                            v.vehicle_class in config.PLATE_DETECTION_CLASSES
-                            and v.vehicle_class not in config.NO_PLATE_CLASSES
-                            and _ocr.needs_ocr(v.track_id)
-                        ):
-                            try:
-                                crop = crop_vehicle(frame, v.bbox)
-                                if crop.size > 0:
-                                    _ocr.submit_vehicle_crop(v.track_id, crop, v.bbox)
-                            except Exception:
-                                pass
-                try:
-                    _ocr.drain_completed()
-                    plates_map = _ocr.get_all_plates()
-                    plate_boxes_map = _ocr.get_all_plate_boxes()
-                except Exception:
-                    pass
+                    plate_vehicles = [
+                        v for v in vehicles
+                        if v.vehicle_class in config.PLATE_DETECTION_CLASSES
+                        and v.vehicle_class not in config.NO_PLATE_CLASSES
+                        and (v.bbox[3] - v.bbox[1]) >= config.MIN_VEHICLE_HEIGHT_FOR_OCR
+                    ]
+                    _ocr.detect_plates_sync(frame, plate_vehicles)
+                plates_map = _ocr.get_all_plates()
+                plate_boxes_map = _ocr.get_all_plate_boxes()
 
             # ── Helmet Checker (Module 1) ───────────────────────────────────
             all_violations = []
@@ -330,29 +316,27 @@ def _run_analysis(source, source_type: str) -> None:
             if _helmet_checker is not None:
                 try:
                     for v in vehicles:
-                        if v.vehicle_class in config.TWO_WHEELER_CLASSES:
-                            # ── INSTANT LOG: add every two-wheeler immediately on first detection
-                            # so it appears in the table right away (status = unknown until model runs)
+                        v_cls = counter.get_voted_class(v.track_id)
+                        raw_cls = v.vehicle_class
+                        if config.is_two_wheeler(raw_cls) or config.is_two_wheeler(v_cls):
                             with _helmet_checker._lock:
                                 if v.track_id not in _helmet_checker.all_two_wheeler_statuses:
-                                    plate_now = "UNKNOWN"
-                                    if _ocr is not None:
-                                        plate_now = _ocr.get_plate(v.track_id) or "UNKNOWN"
+                                    plate_now = _ocr.get_plate(v.track_id) if _ocr else None
                                     _helmet_checker.all_two_wheeler_statuses[v.track_id] = {
                                         "track_id": v.track_id,
-                                        "plate": plate_now,
-                                        "vehicle_class": v.vehicle_class,
+                                        "plate": plate_now or "not detected",
+                                        "vehicle_class": v_cls if v_cls != "Others" else "Bike/Motorcycle",
                                         "rider_helmet": "unknown",
                                         "pillion_helmet": "none",
-                                        "timestamp": current_timestamp()
+                                        "timestamp": current_timestamp(),
+                                        "has_violation": False,
+                                        "violations": [],
                                     }
 
                             if _helmet_checker.should_check(v.track_id, frame_idx):
-                                plate = "UNKNOWN"
-                                if _ocr is not None:
-                                    plate = _ocr.get_plate(v.track_id) or "UNKNOWN"
+                                plate = (_ocr.get_plate(v.track_id) if _ocr else None) or "UNKNOWN"
                                 crop = crop_vehicle(frame, v.bbox)
-                                _helmet_checker.submit(v.track_id, crop, v.vehicle_class, plate, current_timestamp(), v.bbox)
+                                _helmet_checker.submit(v.track_id, crop, raw_cls, plate, current_timestamp(), v.bbox)
 
                     _helmet_checker.drain_completed()
                     all_violations = _helmet_checker.get_active_violations()
@@ -362,7 +346,7 @@ def _run_analysis(source, source_type: str) -> None:
 
             # ── Pedestrian & Gender/Child Detector (Module 2) ───────────────
             pedestrians = []
-            pedestrian_summary = {"total": 0, "males": 0, "females": 0, "children": 0}
+            pedestrian_summary = {"total": 0, "males": 0, "females": 0, "children": 0, "unknown": 0}
             pedestrian_details = []
             
             if _pedestrian_detector is not None:
@@ -391,7 +375,26 @@ def _run_analysis(source, source_type: str) -> None:
                             _pedestrian_detector.submit(p.track_id, crop, current_timestamp())
                             
                     _pedestrian_detector.drain_completed()
-                    pedestrian_summary, pedestrian_details = _pedestrian_detector.get_current_pedestrians()
+                    _, pedestrian_details = _pedestrian_detector.get_current_pedestrians()
+
+                    for p in pedestrians:
+                        gender = _pedestrian_detector.results.get(p.track_id, "unknown")
+                        if p.track_id not in _all_pedestrians_seen or gender != "unknown":
+                            _all_pedestrians_seen[p.track_id] = gender
+
+                    # Cumulative session pedestrian summary
+                    ped_totals = {"total": 0, "males": 0, "females": 0, "children": 0, "unknown": 0}
+                    for gender in _all_pedestrians_seen.values():
+                        ped_totals["total"] += 1
+                        if gender in ["male_adult", "male", "man", "boy"]:
+                            ped_totals["males"] += 1
+                        elif gender in ["female_adult", "female", "woman", "girl"]:
+                            ped_totals["females"] += 1
+                        elif gender in ["child", "kid"]:
+                            ped_totals["children"] += 1
+                        else:
+                            ped_totals["unknown"] += 1
+                    pedestrian_summary = ped_totals
                 except Exception as exc:
                     print(f"[server] Pedestrian detector error: {exc}")
 
@@ -412,9 +415,23 @@ def _run_analysis(source, source_type: str) -> None:
             t_prev = t_now
 
             # ── Shared state update ─────────────────────────────────────────
+            # ── Shared state update ─────────────────────────────────────────
+            current_plates = []
+            for tid, p in plates_map.items():
+                v_cls = counter.get_voted_class(tid)
+                conf = _ocr.plate_confidences.get(tid, 0.92) if _ocr else 0.92
+                conf_val = round(conf * 100) if conf <= 1.0 else round(conf)
+                current_plates.append({
+                    "track_id": tid,
+                    "plate": p,
+                    "vehicle_class": v_cls,
+                    "confidence": conf_val,
+                    "timestamp": int(time.time() * 1000)
+                })
+
             with _state_lock:
                 _latest_counts = counts
-                _latest_plates = plates_map
+                _latest_plates = current_plates
                 _latest_violations = all_violations
                 _latest_two_wheeler_statuses = two_wheeler_statuses
                 _latest_pedestrians = {
@@ -422,6 +439,7 @@ def _run_analysis(source, source_type: str) -> None:
                     "males": pedestrian_summary.get("males", 0),
                     "females": pedestrian_summary.get("females", 0),
                     "children": pedestrian_summary.get("children", 0),
+                    "unknown": pedestrian_summary.get("unknown", 0),
                     "details": pedestrian_details
                 }
                 _latest_fps    = fps
@@ -459,6 +477,154 @@ def _run_analysis(source, source_type: str) -> None:
 
     finally:
         cap.release()
+
+        # ── Build overall-video summary when a FILE finishes naturally ──────
+        # (not for live/RTSP, and not when manually stopped)
+        if not is_live_source and not _stop_event.is_set():
+            # Use exact high-precision line crossing count for identical final summary
+            final_counts = counter.get_counts()
+
+            # 1. Recognized Plates
+            all_detected_plates = _ocr.get_all_plates() if _ocr else {}
+            final_plates: List[Dict] = []
+            recognized_plates_rows = []
+            for tid in sorted(all_detected_plates.keys()):
+                plate_str = all_detected_plates[tid]
+                v_class = counter.get_voted_class(tid)
+                conf = _ocr.plate_confidences.get(tid, 0.92) if _ocr else 0.92
+                conf_val = round(conf * 100) if conf <= 1.0 else round(conf)
+                p_obj = {
+                    "track_id": tid,
+                    "plate": plate_str,
+                    "vehicle_class": v_class,
+                    "confidence": conf_val,
+                    "timestamp": int(time.time() * 1000)
+                }
+                final_plates.append(p_obj)
+                recognized_plates_rows.append({
+                    "track_id": tid,
+                    "vehicle_class": v_class,
+                    "plate": plate_str,
+                    "confidence": f"{conf_val}%"
+                })
+
+            # 2. Two-wheelers & Helmet Compliance
+            two_wheelers = _helmet_checker.get_all_two_wheelers() if _helmet_checker else {}
+            final_two_wheeler_statuses = []
+            two_wheeler_rows = []
+            final_violations = []
+
+            for tid, info in two_wheelers.items():
+                v_cls = info.get("vehicle_class") or counter.get_voted_class(tid)
+                r_h = str(info.get("rider_helmet", "unknown")).lower()
+                p_h = str(info.get("pillion_helmet", "none")).lower()
+                has_viol = info.get("has_violation", False) or "no_helmet" in r_h or "no_helmet" in p_h
+
+                if "no_helmet" in r_h and "no_helmet" in p_h:
+                    verdict_disp = "VIOLATION (Rider + Pillion No Helmet)"
+                elif "no_helmet" in r_h:
+                    verdict_disp = "VIOLATION (Rider No Helmet)"
+                elif "no_helmet" in p_h:
+                    verdict_disp = "VIOLATION (Pillion No Helmet)"
+                elif has_viol:
+                    verdict_disp = "VIOLATION"
+                elif "helmet" in r_h:
+                    verdict_disp = "COMPLIANT"
+                else:
+                    verdict_disp = "COMPLIANT"
+
+                tw_obj = {
+                    "track_id": tid,
+                    "vehicle_class": v_cls,
+                    "plate": info.get("plate", "not detected"),
+                    "rider_helmet": r_h,
+                    "pillion_helmet": p_h,
+                    "has_violation": has_viol,
+                    "verdict": verdict_disp,
+                    "timestamp": info.get("timestamp", "")
+                }
+                final_two_wheeler_statuses.append(tw_obj)
+                two_wheeler_rows.append({
+                    "track_id": tid,
+                    "vehicle_class": v_cls,
+                    "plate": info.get("plate", "not detected"),
+                    "rider_helmet": r_h.replace("_", " ").title(),
+                    "pillion_helmet": p_h.replace("_", " ").title(),
+                    "verdict": verdict_disp,
+                })
+                if has_viol:
+                    final_violations.append({
+                        "track_id": tid,
+                        "plate": info.get("plate", "not detected"),
+                        "violation_type": "no_helmet_rider" if "no_helmet" in r_h else "no_helmet_pillion",
+                        "timestamp": info.get("timestamp", "")
+                    })
+
+            # 3. Itemized Crossing line vehicles
+            per_vehicle_rows = []
+            for track_id in sorted(counter.counted_ids):
+                v_cls = counter.track_assigned_class.get(track_id, "Unknown")
+                plt = _ocr.get_plate(track_id) if _ocr else None
+                h_stat = "N/A"
+                if config.is_two_wheeler(v_cls):
+                    if _helmet_checker and track_id in _helmet_checker.all_two_wheeler_statuses:
+                        st = _helmet_checker.all_two_wheeler_statuses[track_id]
+                        if st.get("has_violation") or "no_helmet" in str(st.get("rider_helmet", "")):
+                            h_stat = "VIOLATION (No Helmet)"
+                        else:
+                            h_stat = "Compliant"
+                per_vehicle_rows.append({
+                    "track_id": track_id,
+                    "vehicle_class": v_cls,
+                    "plate": plt or "not detected",
+                    "helmet_status": h_stat,
+                })
+
+            # 4. Pedestrian summary
+            pedestrian_totals = {"total": 0, "males": 0, "females": 0, "children": 0, "unknown": 0}
+            for gender in _all_pedestrians_seen.values():
+                pedestrian_totals["total"] += 1
+                if gender in ["male_adult", "male", "man", "boy"]:
+                    pedestrian_totals["males"] += 1
+                elif gender in ["female_adult", "female", "woman", "girl"]:
+                    pedestrian_totals["females"] += 1
+                elif gender in ["child", "kid"]:
+                    pedestrian_totals["children"] += 1
+                else:
+                    pedestrian_totals["unknown"] += 1
+
+            # 5. Write final report to CSV (Matching main.py)
+            if csv_logger:
+                try:
+                    csv_logger.write_final_report(
+                        vehicle_counts=final_counts,
+                        per_vehicle_rows=per_vehicle_rows,
+                        pedestrian_totals=pedestrian_totals,
+                        two_wheeler_rows=two_wheeler_rows,
+                        recognized_plates_rows=recognized_plates_rows,
+                    )
+                except Exception as exc:
+                    print(f"[server] Error writing final report to CSV: {exc}")
+
+            with _state_lock:
+                _video_done    = True
+                _video_summary = {
+                    "counts": final_counts,
+                    "plates": final_plates,
+                    "violations": final_violations,
+                    "two_wheeler_statuses": final_two_wheeler_statuses,
+                    "pedestrians": pedestrian_totals,
+                    "per_vehicle": per_vehicle_rows
+                }
+
+            print(
+                f"[server] ✓ Video complete — "
+                f"{final_counts.get('total', 0)} cumulative vehicles, "
+                f"{len(final_plates)} plates, "
+                f"{len(final_two_wheeler_statuses)} two-wheelers, "
+                f"{pedestrian_totals.get('total', 0)} pedestrians."
+            )
+
         if csv_logger:
             try:
                 csv_logger.stop()
@@ -476,57 +642,6 @@ def _run_analysis(source, source_type: str) -> None:
                 _pedestrian_detector.shutdown()
             except Exception:
                 pass
-
-        # ── Build overall-video summary when a FILE finishes naturally ──────
-        # (not for live/RTSP, and not when manually stopped)
-        if not is_live_source and not _stop_event.is_set():
-            # Use exact high-precision line crossing count for identical final summary
-            final_counts = counter.get_counts()
-
-            final_plates: List[Dict] = []
-            if _ocr:
-                try:
-                    final_plates = [
-                        {"plate": p, "timestamp": int(time.time() * 1000)}
-                        for p in _ocr.get_all_plates().values()
-                    ]
-                except Exception:
-                    pass
-
-            final_violations = []
-            final_two_wheeler_statuses = []
-            if _helmet_checker is not None:
-                final_violations = _helmet_checker.all_violations
-                final_two_wheeler_statuses = _helmet_checker.get_two_wheeler_statuses()
-
-            final_pedestrians = {"total": 0, "males": 0, "females": 0, "children": 0}
-            if _pedestrian_detector is not None:
-                try:
-                    ped_sum, _ = _pedestrian_detector.get_current_pedestrians()
-                    final_pedestrians = {
-                        "total": ped_sum.get("total", 0),
-                        "males": ped_sum.get("males", 0),
-                        "females": ped_sum.get("females", 0),
-                        "children": ped_sum.get("children", 0)
-                    }
-                except Exception:
-                    pass
-
-            with _state_lock:
-                _video_done    = True
-                _video_summary = {
-                    "counts": final_counts,
-                    "plates": final_plates,
-                    "violations": final_violations,
-                    "two_wheeler_statuses": final_two_wheeler_statuses,
-                    "pedestrians": final_pedestrians
-                }
-
-            print(
-                f"[server] ✓ Video complete — "
-                f"{final_counts['total']} cumulative vehicles, "
-                f"{len(final_plates)} plates."
-            )
 
         with _state_lock:
             _is_running = False
@@ -659,10 +774,15 @@ async def video_feed(websocket: WebSocket):
             # 2. Snapshot of shared state
             with _state_lock:
                 counts     = dict(_latest_counts)
-                plates     = [
-                    {"plate": p, "timestamp": int(time.time() * 1000)}
-                    for p in _latest_plates.values()
-                ]
+                if isinstance(_latest_plates, list):
+                    plates = list(_latest_plates)
+                elif isinstance(_latest_plates, dict):
+                    plates = [
+                        {"track_id": tid, "plate": p, "timestamp": int(time.time() * 1000)}
+                        for tid, p in _latest_plates.items()
+                    ]
+                else:
+                    plates = []
                 violations = list(_latest_violations)
                 two_wheeler_statuses = list(_latest_two_wheeler_statuses)
                 pedestrians = dict(_latest_pedestrians)
