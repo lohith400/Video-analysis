@@ -64,14 +64,14 @@ def draw_annotations(
                 # Draw a second bright red box around the person who has no helmet
                 cv2.rectangle(out, (px1, py1), (px2, py2), (0, 0, 255), 2)
                 
-                # Add text label NO HELMET in red above that person box
-                _draw_label(out, "NO HELMET", px1, py1, (0, 0, 255))
+                # Add text label NO HELMET with role in red above that person box
+                role = viol.get("role", "")
+                lbl = f"NO HELMET ({role})" if role else "NO HELMET"
+                _draw_label(out, lbl, px1, py1, (0, 0, 255))
                 
-                # Add plate and violation type text below that box
+                # Add plate and role text below that box
                 plate_text = viol.get("plate", "UNKNOWN")
-                v_type = viol.get("violation_type", "")
-                v_label = v_type.replace("_", " ").title()
-                below_text = f"{plate_text} - {v_label}"
+                below_text = f"{plate_text} - {role}" if role else plate_text
                 _draw_label_below(out, below_text, px1, py2, (0, 0, 255))
 
     # 5. Draw pedestrians

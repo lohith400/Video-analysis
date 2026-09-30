@@ -23,10 +23,18 @@ class PlateDetector:
     def __init__(self, device: str):
         plate_path = Path(config.PLATE_MODEL)
         if not plate_path.exists():
-            raise FileNotFoundError(
-                f"Plate model not found: {plate_path}. "
-                "Place license_plate_detector.pt in models/"
-            )
+            alt = Path("backend") / config.PLATE_MODEL
+            if alt.exists():
+                plate_path = alt
+            else:
+                alt2 = Path("..") / config.PLATE_MODEL
+                if alt2.exists():
+                    plate_path = alt2
+                else:
+                    raise FileNotFoundError(
+                        f"Plate model not found: {plate_path}. "
+                        "Place license_plate_detector.pt in models/"
+                    )
         self.device = device
         self.model = YOLO(str(plate_path))
         self.model.to(device)
@@ -98,10 +106,18 @@ class VehicleModelLoader:
         self.device = device
         model_path = Path(config.VEHICLE_MODEL)
         if not model_path.exists():
-            raise FileNotFoundError(
-                f"Vehicle model not found: {model_path}. "
-                "Run: python download_models.py"
-            )
+            alt = Path("backend") / config.VEHICLE_MODEL
+            if alt.exists():
+                model_path = alt
+            else:
+                alt2 = Path("..") / config.VEHICLE_MODEL
+                if alt2.exists():
+                    model_path = alt2
+                else:
+                    raise FileNotFoundError(
+                        f"Vehicle model not found: {model_path}. "
+                        "Run: python download_models.py"
+                    )
         self.model = YOLO(str(model_path))
         self.model.to(device)
         self._vehicle_class_ids = self._resolve_vehicle_class_ids()
@@ -109,16 +125,16 @@ class VehicleModelLoader:
 
     def _resolve_vehicle_class_ids(self) -> List[int]:
         ids: List[int] = []
+        indian_map = getattr(config, "INDIAN_VEHICLE_CLASS_MAP", {})
         for cls_id, raw_name in self.model.names.items():
             cid = int(cls_id)
-            name = str(raw_name).lower().replace("_", "-")
-            if name in config.ALL_VEHICLE_CLASSES:
+            name = str(raw_name).lower().replace("_", "-").strip()
+            if name in config.ALL_VEHICLE_CLASSES or name in indian_map:
                 ids.append(cid)
             elif cid in config.COCO_VEHICLE_ID_MAP:
                 ids.append(cid)
-        # Include person (class 0) for pedestrian tracking
-        if 0 not in ids:
-            ids.append(0)
+            elif name == "person" or cid == 0:
+                ids.append(cid)
         return sorted(set(ids))
 
     @property

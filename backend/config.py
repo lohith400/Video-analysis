@@ -1,7 +1,7 @@
 """Configuration for real-time traffic video analysis and ANPR pipeline."""
 
 # Model Paths
-VEHICLE_MODEL = "models/yolov8n.pt"
+VEHICLE_MODEL = "models/v2.0/vehicle_detector.pt"
 PLATE_MODEL = "models/v2.0/license_plate_detector.pt"
 HELMET_MODEL = "models/v2.0/helmet_detector.pt"
 GENDER_MODEL = "models/gender_detector.pt"
@@ -41,6 +41,29 @@ USER_CLASS_MAPPING = {
     "van": "Van",
 }
 
+# Indian traffic class mapping for UVH-26 and specialized Indian vehicle models
+INDIAN_VEHICLE_CLASS_MAP = {
+    "three-wheeler": "auto-rickshaw",
+    "two-wheeler": "motorcycle",
+    "hatchback": "car",
+    "sedan": "car",
+    "suv": "car",
+    "muv": "car",
+    "bus": "bus",
+    "mini-bus": "bus",
+    "tempo-traveller": "bus",
+    "truck": "truck",
+    "lcv": "truck",
+    "van": "van",
+    "bicycle": "bicycle",
+    "others": "car",
+    "auto": "auto-rickshaw",
+    "autorickshaw": "auto-rickshaw",
+    "rickshaw": "auto-rickshaw",
+    "bike": "motorcycle",
+    "motorbike": "motorcycle",
+}
+
 PLATE_DETECTION_CLASSES = [
     "car",
     "truck",
@@ -58,6 +81,7 @@ ALL_VEHICLE_CLASSES = [
     "motorcycle",
     "scooter",
     "bicycle",
+    "van",
 ]
 
 BOX_COLORS = {
@@ -89,6 +113,8 @@ HELMET_CONF_THRESHOLD = 0.40
 TWO_WHEELER_CLASSES = ["motorcycle", "scooter"]
 HELMET_CHECK_EVERY_N = 3  # Check every 3 frames for faster violation convergence
 HELMET_CLASS_MAP = {
+    "with helmet": "helmet",
+    "without helmet": "no_helmet",
     "with_helmet": "helmet",
     "without_helmet": "no_helmet",
     "helmet": "helmet",
@@ -96,6 +122,8 @@ HELMET_CLASS_MAP = {
     "head": "no_helmet",
     "Helmet": "helmet",
     "No_Helmet": "no_helmet",
+    "With Helmet": "helmet",
+    "Without Helmet": "no_helmet",
     "Bike_Rider": "helmet",
 }
 

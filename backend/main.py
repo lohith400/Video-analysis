@@ -372,8 +372,33 @@ def main() -> int:
     )
     print(f" Final per-vehicle report appended to: {config.CSV_PATH}\n")
 
+    if per_vehicle_rows:
+        print("─" * 68)
+        print(" 📋   ITEMIZED VEHICLE LOG (CROSSING LINE)")
+        print("─" * 68)
+        print(f" {'TRACK ID':<10} ║ {'VEHICLE TYPE':<18} ║ {'NUMBER PLATE':<16} ║ {'HELMET STATUS'}")
+        print("─" * 68)
+        for row in per_vehicle_rows:
+            tid = f"#{row['track_id']}"
+            v_cls = row['vehicle_class']
+            plt = row['plate']
+            h_stat = row['helmet_status']
+            print(f" {tid:<10} ║ {v_cls:<18} ║ {plt:<16} ║ {h_stat}")
+        print("═" * 68 + "\n")
+
+    if pedestrian_totals and pedestrian_totals.get("total", 0) > 0:
+        print("─" * 68)
+        print(" 🚶   PEDESTRIAN & DEMOGRAPHIC SUMMARY")
+        print("─" * 68)
+        for cat, cnt in pedestrian_totals.items():
+            print(f" {cat.capitalize():<25} ║ {cnt:<20}")
+        print("═" * 68 + "\n")
+
     return 0
 
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+    

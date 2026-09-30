@@ -29,6 +29,15 @@ class PedestrianDetector:
         self._lock = threading.Lock()
 
         gender_path = Path(config.GENDER_MODEL)
+        if not gender_path.exists():
+            alt = Path("backend") / config.GENDER_MODEL
+            if alt.exists():
+                gender_path = alt
+            else:
+                alt2 = Path("..") / config.GENDER_MODEL
+                if alt2.exists():
+                    gender_path = alt2
+
         self.model = None
         self.deepface_available = False
 
@@ -124,12 +133,23 @@ class PedestrianDetector:
             if self.model is not None:
                 results = self.model.predict(
                     person_crop,
-                    conf=config.GENDER_CONF_THRESHOLD,
-                    half=config.USE_HALF,
                     device=self.device,
                     verbose=False
                 )
-                if results and results[0].boxes is not None and len(results[0].boxes) > 0:
+                if results and hasattr(results[0], 'probs') and results[0].probs is not None:
+                    probs = results[0].probs
+                    top1_idx = int(probs.top1)
+                    cls_name = self.model.names[top1_idx].lower()
+                    conf = float(probs.top1conf)
+                    
+                    if conf >= config.GENDER_CONF_THRESHOLD:
+                        if any(w in cls_name for w in ["female", "woman", "girl"]):
+                            gender = "female_adult"
+                        elif any(w in cls_name for w in ["male", "man", "boy"]):
+                            gender = "male_adult"
+                        elif any(w in cls_name for w in ["child", "kid"]):
+                            gender = "child"
+                elif results and results[0].boxes is not None and len(results[0].boxes) > 0:
                     best_idx = int(results[0].boxes.conf.argmax().item())
                     cls_id = int(results[0].boxes.cls[best_idx].item())
                     cls_name = self.model.names[cls_id].lower()

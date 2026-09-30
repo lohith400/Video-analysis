@@ -9,6 +9,7 @@ import collections
 import re
 import threading
 from concurrent.futures import Future, ThreadPoolExecutor
+from pathlib import Path
 from typing import Dict, Optional, Tuple, List, Any
 from collections import defaultdict
 import cv2
@@ -61,7 +62,19 @@ class OCREngine:
         self.device = device
         self._lock = threading.Lock()
         self.detector = PlateDetector(device)
-        self.reader = easyocr.Reader(['en'], gpu=(device == "cuda"))
+        easyocr_dir = Path("models/easyocr")
+        if not easyocr_dir.exists():
+            alt_easy = Path("backend/models/easyocr")
+            if alt_easy.exists():
+                easyocr_dir = alt_easy
+            else:
+                alt_easy2 = Path("../models/easyocr")
+                if alt_easy2.exists():
+                    easyocr_dir = alt_easy2
+        if easyocr_dir.exists():
+            self.reader = easyocr.Reader(['en'], gpu=(device == "cuda"), model_storage_directory=str(easyocr_dir))
+        else:
+            self.reader = easyocr.Reader(['en'], gpu=(device == "cuda"))
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
         
         # State tracking

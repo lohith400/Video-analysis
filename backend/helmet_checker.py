@@ -35,11 +35,20 @@ class HelmetChecker:
         self.model = None
 
         helmet_path = Path(config.HELMET_MODEL)
+        if not helmet_path.exists():
+            alt = Path("backend") / config.HELMET_MODEL
+            if alt.exists():
+                helmet_path = alt
+            else:
+                alt2 = Path("..") / config.HELMET_MODEL
+                if alt2.exists():
+                    helmet_path = alt2
+
         if helmet_path.exists():
             try:
                 self.model = YOLO(str(helmet_path))
                 self.model.to(device)
-                print(f"[HelmetChecker] Loaded helmet model on {device}")
+                print(f"[HelmetChecker] Loaded helmet model from {helmet_path} on {device}")
             except Exception as exc:
                 print(f"[HelmetChecker] WARNING: Failed to load helmet model: {exc}")
         else:
@@ -92,7 +101,7 @@ class HelmetChecker:
         plate: str,
         timestamp: str,
         bbox: Tuple[int, int, int, int],
-    ) -> Optional[Tuple[int, str, str, str]]:
+    ) -> Optional[Dict[str, Any]]:
         try:
             results = self.model.predict(
                 vehicle_crop,
@@ -101,24 +110,93 @@ class HelmetChecker:
                 verbose=False,
             )
             
-            rider_status = "helmet"  # Default compliant unless violation detected
-            
+            heads = []
             if results and results[0].boxes is not None and len(results[0].boxes) > 0:
                 boxes = results[0].boxes
+                xyxy = boxes.xyxy.cpu().numpy()
+                confs = boxes.conf.cpu().numpy()
                 cls_ids = boxes.cls.cpu().numpy().astype(int)
-                
-                for cid in cls_ids:
+
+                vx1, vy1 = bbox[0], bbox[1]
+
+                for i in range(len(xyxy)):
+                    hx1, hy1, hx2, hy2 = map(int, xyxy[i])
+                    cid = cls_ids[i]
                     cname = self.model.names[cid].lower()
                     mapped = config.HELMET_CLASS_MAP.get(cname, cname)
-                    if "no_helmet" in mapped or "without_helmet" in mapped or "head" in mapped:
-                        rider_status = "no_helmet"
-                        break
+                    is_no_helmet = ("no_helmet" in mapped or "without_helmet" in mapped or "head" in mapped)
+                    
+                    # Convert to absolute frame coordinates
+                    abs_box = (vx1 + hx1, vy1 + hy1, vx1 + hx2, vy1 + hy2)
+                    heads.append({
+                        "crop_bbox": (hx1, hy1, hx2, hy2),
+                        "abs_bbox": abs_box,
+                        "status": "no_helmet" if is_no_helmet else "helmet",
+                        "conf": float(confs[i]),
+                        "center_x": (hx1 + hx2) / 2.0,
+                        "center_y": (hy1 + hy2) / 2.0,
+                    })
 
-            return track_id, rider_status, plate, timestamp
+            # Sort heads along X-axis
+            heads.sort(key=lambda h: h["center_x"])
+
+            rider_status = "unknown"
+            pillion_status = "none"
+            violations = []
+
+            if len(heads) == 1:
+                rider_status = heads[0]["status"]
+                pillion_status = "none"
+                if rider_status == "no_helmet":
+                    violations.append({
+                        "track_id": track_id,
+                        "type": "no_helmet_rider",
+                        "role": "Rider",
+                        "timestamp": timestamp,
+                        "plate": plate,
+                        "person_bbox": heads[0]["abs_bbox"],
+                    })
+            elif len(heads) >= 2:
+                # First head is rider, second head is pillion
+                rider_status = heads[0]["status"]
+                pillion_status = heads[1]["status"]
+                if rider_status == "no_helmet":
+                    violations.append({
+                        "track_id": track_id,
+                        "type": "no_helmet_rider",
+                        "role": "Rider",
+                        "timestamp": timestamp,
+                        "plate": plate,
+                        "person_bbox": heads[0]["abs_bbox"],
+                    })
+                if pillion_status == "no_helmet":
+                    violations.append({
+                        "track_id": track_id,
+                        "type": "no_helmet_pillion",
+                        "role": "Pillion",
+                        "timestamp": timestamp,
+                        "plate": plate,
+                        "person_bbox": heads[1]["abs_bbox"],
+                    })
+
+            return {
+                "track_id": track_id,
+                "rider_status": rider_status,
+                "pillion_status": pillion_status,
+                "plate": plate,
+                "timestamp": timestamp,
+                "violations": violations,
+            }
 
         except Exception as exc:
-            # Fallback on inference error without crashing
-            return track_id, "unknown", plate, timestamp
+            return {
+                "track_id": track_id,
+                "rider_status": "unknown",
+                "pillion_status": "none",
+                "plate": plate,
+                "timestamp": timestamp,
+                "violations": [],
+            }
 
     def drain_completed(self) -> None:
         with self._lock:
@@ -128,23 +206,25 @@ class HelmetChecker:
                     try:
                         res = future.result()
                         if res is not None:
-                            tid, status, plate, ts = res
+                            tid = res["track_id"]
+                            r_status = res["rider_status"]
+                            p_status = res["pillion_status"]
+                            plate = res["plate"]
+                            ts = res["timestamp"]
+                            viols = res["violations"]
+
                             if tid not in self.all_two_wheeler_statuses:
                                 self.all_two_wheeler_statuses[tid] = {}
-                            
-                            self.all_two_wheeler_statuses[tid]["rider_helmet"] = status
+
+                            self.all_two_wheeler_statuses[tid]["rider_helmet"] = r_status
+                            self.all_two_wheeler_statuses[tid]["pillion_helmet"] = p_status
                             self.all_two_wheeler_statuses[tid]["timestamp"] = ts
                             if plate != "UNKNOWN":
                                 self.all_two_wheeler_statuses[tid]["plate"] = plate
 
-                            if status == "no_helmet":
-                                self.active_violations[tid] = {
-                                    "track_id": tid,
-                                    "type": "no_helmet",
-                                    "timestamp": ts,
-                                    "plate": plate,
-                                }
-                            elif status == "helmet" and tid in self.active_violations:
+                            if viols:
+                                self.active_violations[tid] = viols
+                            elif (r_status == "helmet" and p_status in ("helmet", "none")) and tid in self.active_violations:
                                 self.active_violations.pop(tid, None)
 
                     except Exception as exc:
@@ -156,7 +236,13 @@ class HelmetChecker:
 
     def get_active_violations(self) -> List[Dict[str, Any]]:
         with self._lock:
-            return list(self.active_violations.values())
+            all_v = []
+            for item in self.active_violations.values():
+                if isinstance(item, list):
+                    all_v.extend(item)
+                elif isinstance(item, dict):
+                    all_v.append(item)
+            return all_v
 
     def cleanup_stale(self, active_track_ids: Set[int]) -> None:
         with self._lock:
