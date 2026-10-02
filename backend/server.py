@@ -198,13 +198,7 @@ def _reset_summary() -> None:
     # Also clear the OCR engine's accumulated results so plates from a previous
     # video session don't bleed into the new one
     if _ocr is not None:
-        with _ocr._lock:
-            _ocr.results.clear()
-            _ocr.plate_boxes.clear()
-            _ocr.pending_futures.clear()
-            _ocr.attempts.clear()
-            _ocr.vehicle_crop_buffer.clear()
-            _ocr.ocr_history.clear()
+        _ocr.reset()
     # Clear helmet checker session state
     if _helmet_checker is not None:
         with _helmet_checker._lock:

@@ -120,6 +120,33 @@ class PositionalRegexCorrector:
         return None
 
 
+def extract_valid_plate(raw_str: str) -> Optional[str]:
+    """
+    Recover a valid Indian plate from a noisy OCR string.
+
+    Tries the whole string first (identical to the old behaviour), then slides a
+    window of 10 -> 8 characters across it. This rescues reads polluted by stray
+    characters ("IND", bolt holes, stickers, neighbouring text) that previously made
+    the whole read be thrown away because of the strict 8-11 length gate.
+    """
+    if not raw_str:
+        return None
+    s = re.sub(r"[^A-Z0-9]", "", str(raw_str).upper())
+    direct = PositionalRegexCorrector.correct_string(s)
+    if direct:
+        return direct
+    if len(s) <= 8:
+        return None
+    for win in (10, 9, 8):
+        if len(s) < win:
+            continue
+        for start in range(0, len(s) - win + 1):
+            cand = PositionalRegexCorrector.correct_string(s[start:start + win])
+            if cand:
+                return cand
+    return None
+
+
 def levenshtein_distance(s1: str, s2: str) -> int:
     """Standard dynamic programming Levenshtein distance."""
     if len(s1) < len(s2):

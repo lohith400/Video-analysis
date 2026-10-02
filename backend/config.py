@@ -23,6 +23,23 @@ PLATE_USE_HALF = False  # Keep FP32 to avoid fused Conv+BN graph issues on older
 PLATE_DETECT_EVERY_N_FRAMES = 1  # Synchronous per-frame detection for maximum recall
 MIN_VEHICLE_HEIGHT_FOR_OCR = 35  # Lowered from 100px: allows OCR attempts on incoming two-wheelers earlier
 MIN_PLATE_CHARS = 4
+# --- Second-pass plate detection on vehicle crops (two-wheelers / autos) ---
+# Full-frame detection at imgsz=1280 shrinks a 4K frame ~3x, turning a 70px scooter
+# plate into ~23px. The crop pass runs the plate model on the vehicle crop at near-native
+# resolution for vehicles whose plate was not found by the full-frame pass.
+PLATE_CROP_PASS_ENABLED = True
+PLATE_CROP_PASS_CLASSES = [
+    "motorcycle", "scooter", "auto-rickshaw", "bike/motorcycle", "bike",
+]
+PLATE_CROP_CONF = 0.15          # crops are tight, so a lower floor is safe
+PLATE_CROP_PAD = 0.08           # fractional padding around vehicle bbox
+PLATE_CROP_MIN_LONG_SIDE = 640  # upscale smaller crops to this long side
+PLATE_CROP_MAX_IMGSZ = 960
+PLATE_CROP_EVERY_N_FRAMES = 2   # retry cadence per frame for vehicles still without a plate
+PLATE_OCR_MIN_HEIGHT = 96       # upscale plate crops to at least this height before OCR
+PLATE_ACCEPT_SINGLE_CONF = 0.45 # a single valid-format read at/above this OCR conf is published
+PLATE_MIN_ASPECT = 0.8          # reject implausible plate boxes (w/h)
+PLATE_MAX_ASPECT = 6.5
 MAX_PLATE_CHARS = 11
 OCR_MAX_WORKERS = 4
 
