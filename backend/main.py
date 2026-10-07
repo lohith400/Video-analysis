@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import threading
 import time
@@ -112,6 +113,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Skip plate detection and OCR — run vehicle detection only",
     )
+    parser.add_argument(
+        "--headless",
+        action="store_true",
+        help="Run without displaying GUI video window",
+    )
     return parser.parse_args()
 
 
@@ -170,8 +176,10 @@ def main() -> int:
     fps = 0.0
     t_prev = time.perf_counter()
 
-    print("Press 'q' in the video window to quit.")
-    cv2.namedWindow(config.WINDOW_NAME, cv2.WINDOW_NORMAL)
+    headless = args.headless or os.getenv("IRIS_HEADLESS", "").lower() in ("1", "true", "yes")
+    if not headless:
+        print("Press 'q' in the video window to quit.")
+        cv2.namedWindow(config.WINDOW_NAME, cv2.WINDOW_NORMAL)
 
     try:
         while True:
@@ -227,34 +235,22 @@ def main() -> int:
                             helmet_checker.submit(v.track_id, crop, raw_cls, plate, _current_timestamp(), v.bbox)
                 helmet_checker.drain_completed()
 
-            # ── Pedestrian & demographic detector
+            # ── Pedestrian & demographic detector (IRIS v2.1)
             if pedestrian_detector is not None:
-                raw_results = []
-                if tracker.last_boxes is not None:
-                    boxes = tracker.last_boxes
-                    if boxes.id is not None:
-                        xyxy = boxes.xyxy.cpu().numpy()
-                        cls_ids = boxes.cls.cpu().numpy().astype(int)
-                        track_ids = boxes.id.cpu().numpy().astype(int)
-                        for i in range(len(xyxy)):
-                            raw_results.append(RawBox(
-                                cls=cls_ids[i],
-                                track_id=track_ids[i],
-                                bbox=(int(xyxy[i][0]), int(xyxy[i][1]), int(xyxy[i][2]), int(xyxy[i][3])),
-                            ))
-                person_boxes = [b for b in raw_results if b.cls == 0]
                 vehicle_boxes = [v.bbox for v in vehicles]
-                pedestrians = pedestrian_detector.filter_pedestrians(person_boxes, vehicle_boxes)
+                vehicle_classes = [v.vehicle_class for v in vehicles]
+                pedestrians = pedestrian_detector.detect_and_track(frame, vehicle_boxes, vehicle_classes)
                 for p in pedestrians:
                     if pedestrian_detector.should_check(p.track_id, frame_idx):
                         crop = crop_vehicle(frame, p.bbox)
-                        pedestrian_detector.submit(p.track_id, crop, _current_timestamp())
+                        pedestrian_detector.submit(
+                            p.track_id,
+                            crop,
+                            _current_timestamp(),
+                            bbox=p.bbox,
+                            frame_shape=frame.shape[:2],
+                        )
                 pedestrian_detector.drain_completed()
-
-                for p in pedestrians:
-                    gender = pedestrian_detector.results.get(p.track_id, "unknown")
-                    if p.track_id not in _all_pedestrians_seen or gender != "unknown":
-                        _all_pedestrians_seen[p.track_id] = gender
 
             if frame_idx % 30 == 0:
                 active_ids = {v.track_id for v in vehicles}
@@ -301,9 +297,10 @@ def main() -> int:
             else:
                 display_frame = annotated
 
-            cv2.imshow(config.WINDOW_NAME, display_frame)
-            if cv2.waitKey(1) & 0xFF == ord("q"):
-                break
+            if not headless:
+                cv2.imshow(config.WINDOW_NAME, display_frame)
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    break
 
             frame_idx += 1
 
@@ -486,17 +483,10 @@ def main() -> int:
         print("═" * 68 + "\n")
 
     # ── 4. Pedestrian summary
-    pedestrian_totals = {"total": 0, "males": 0, "females": 0, "children": 0, "unknown": 0}
-    for gender in _all_pedestrians_seen.values():
-        pedestrian_totals["total"] += 1
-        if gender in ["male_adult", "male", "man", "boy"]:
-            pedestrian_totals["males"] += 1
-        elif gender in ["female_adult", "female", "woman", "girl"]:
-            pedestrian_totals["females"] += 1
-        elif gender in ["child", "kid"]:
-            pedestrian_totals["children"] += 1
-        else:
-            pedestrian_totals["unknown"] += 1
+    if pedestrian_detector is not None:
+        pedestrian_totals = pedestrian_detector.get_session_summary()
+    else:
+        pedestrian_totals = {"total": 0, "males": 0, "females": 0, "children": 0, "unknown": 0}
 
     if pedestrian_totals and pedestrian_totals.get("total", 0) > 0:
         print("─" * 68)

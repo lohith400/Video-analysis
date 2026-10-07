@@ -345,50 +345,26 @@ def _run_analysis(source, source_type: str) -> None:
             
             if _pedestrian_detector is not None:
                 try:
-                    raw_results = []
-                    if _tracker.last_boxes is not None:
-                        boxes = _tracker.last_boxes
-                        if boxes.id is not None:
-                            xyxy = boxes.xyxy.cpu().numpy()
-                            cls_ids = boxes.cls.cpu().numpy().astype(int)
-                            track_ids = boxes.id.cpu().numpy().astype(int)
-                            for i in range(len(xyxy)):
-                                raw_results.append(RawBox(
-                                    cls=cls_ids[i],
-                                    track_id=track_ids[i],
-                                    bbox=(int(xyxy[i][0]), int(xyxy[i][1]), int(xyxy[i][2]), int(xyxy[i][3]))
-                                ))
-                                
-                    person_boxes = [b for b in raw_results if b.cls == 0]
                     vehicle_boxes = [v.bbox for v in vehicles]
-                    pedestrians = _pedestrian_detector.filter_pedestrians(person_boxes, vehicle_boxes)
+                    vehicle_classes = [v.vehicle_class for v in vehicles]
+                    pedestrians = _pedestrian_detector.detect_and_track(frame, vehicle_boxes, vehicle_classes)
                     
                     for p in pedestrians:
                         if _pedestrian_detector.should_check(p.track_id, frame_idx):
                             crop = crop_person(frame, p.bbox)
-                            _pedestrian_detector.submit(p.track_id, crop, current_timestamp())
+                            _pedestrian_detector.submit(
+                                p.track_id,
+                                crop,
+                                current_timestamp(),
+                                bbox=p.bbox,
+                                frame_shape=frame.shape[:2],
+                            )
                             
                     _pedestrian_detector.drain_completed()
                     _, pedestrian_details = _pedestrian_detector.get_current_pedestrians()
 
-                    for p in pedestrians:
-                        gender = _pedestrian_detector.results.get(p.track_id, "unknown")
-                        if p.track_id not in _all_pedestrians_seen or gender != "unknown":
-                            _all_pedestrians_seen[p.track_id] = gender
-
-                    # Cumulative session pedestrian summary
-                    ped_totals = {"total": 0, "males": 0, "females": 0, "children": 0, "unknown": 0}
-                    for gender in _all_pedestrians_seen.values():
-                        ped_totals["total"] += 1
-                        if gender in ["male_adult", "male", "man", "boy"]:
-                            ped_totals["males"] += 1
-                        elif gender in ["female_adult", "female", "woman", "girl"]:
-                            ped_totals["females"] += 1
-                        elif gender in ["child", "kid"]:
-                            ped_totals["children"] += 1
-                        else:
-                            ped_totals["unknown"] += 1
-                    pedestrian_summary = ped_totals
+                    # Cumulative session pedestrian summary from unique stable tracks
+                    pedestrian_summary = _pedestrian_detector.get_session_summary()
                 except Exception as exc:
                     print(f"[server] Pedestrian detector error: {exc}")
 
