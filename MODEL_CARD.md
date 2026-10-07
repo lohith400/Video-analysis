@@ -48,21 +48,20 @@ Trained on a very small dataset. Expected to generalise poorly to
 headgear, clothing, and lighting conditions outside the collected
 footage. Functional prototype, not a production classifier.
 
-## 3. Pedestrian Demographics Classifier
+## 3. Pedestrian Detector & Demographics Vision Engine (v2.1)
 
 | Property | Value |
 |---|---|
-| Base architecture | YOLOv8-Nano |
-| Parameters | 3.16 M — 6.25 MB weights |
-| Classes | `male_adult`, `female_adult`, `child` |
-| Fallback | DeepFace-based estimator, used only if custom weights are unavailable at runtime |
-| Dataset | 84 hand-collected, self-annotated images (test split: 9 images) |
-
-Child classification is reinforced by a rule-based, scene-relative
-height heuristic (`geometry_utils.is_child_by_height`) rather than
-relying on the classifier alone — a deliberate compensation for a
-training set too small to trust for a subtle category like child vs.
-short adult.
+| Pedestrian Detector | YOLOv8-Nano (COCO class 0 `person`) at native resolution |
+| Demographic Classifier | `models/v2.1/gender_detector.pt` behind modular `DemographicClassifier` interface |
+| Classes | `male_adult`, `female_adult`, `child`, `unknown` |
+| Tracking & Persistence | ByteTrack tracking with track age gate (`MIN_PEDESTRIAN_TRACK_AGE = 8`) |
+| Rider Exclusion | Dual geometric gate: `intersection/person_area >= 0.50` + 40% upward-expanded two-wheeler box containment |
+| Temporal Voting | Confidence-weighted rolling consensus (15-frame window, >=60% weighted majority, >=3 votes) |
+| Child Logic | Model prediction priority (`USE_HEIGHT_CHILD_HEURISTIC = False` by default; weak height heuristic disabled) |
+| Quality Gates | Min height 80px, min width 30px, Laplacian sharpness variance >= 20.0, frame edge cutoff rejection |
+| Abstention Policy | Low confidence (<0.50) or gated crops honestly abstain as `unknown`; never coerced to male |
+| Privacy Notice | Full-body demographic inference from public CCTV is inherently approximate and sensitive; `unknown` is actively logged when uncertainty exists |
 
 ## Baseline / supporting weights
 

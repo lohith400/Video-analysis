@@ -8,8 +8,8 @@ numbers underserves anyone trying to build on or evaluate this project.
 | Area | Honest current state |
 |---|---|
 | **Plate detector accuracy** | Strong on its 320-image training distribution; not validated on an independent, larger, more diverse test set. 95.4% mAP@50 is a development milestone, not a deployment guarantee. |
-| **Helmet & demographics models** | Trained on very small datasets (210 and 84 images respectively). Expected to generalise poorly to headgear, clothing, and lighting conditions outside the collected footage. Functional prototypes, not production classifiers. |
-| **Child classification** | Relies on a scene-relative height heuristic (`geometry_utils.is_child_by_height`), not a well-validated learned category. Will misfire in low-population or unusual-camera-angle scenes. |
+| **Helmet model** | Trained on a small dataset (210 images). Expected to generalise poorly to headgear, clothing, and lighting conditions outside the collected footage. Functional prototype, not a production classifier. |
+| **Demographics & child classification** | Upgraded in v2.1 with dedicated COCO person tracking, rider exclusion (area >= 0.50 + box expansion), quality gates, and per-track confidence-weighted voting. Weak child-height heuristic is disabled by default to prevent perspective distortion. Full-body demographic inference from CCTV remains inherently sensitive and approximate; low-confidence and small crops honestly abstain as `unknown`. |
 | **Rider/pillion assignment** | Positional (left-right) heuristic (`helmet_logic.classify_riders`). Not robust to unconventional camera angles or overtaking motorcycles. |
 | **Testing rigor** | 36 unit tests cover the pure-logic components (geometry, plate validation, class voting, the two heuristics above). No integration tests against real video, no automated regression suite, no CI-driven accuracy benchmarking. |
 | **Deployment readiness** | Runs reliably as a local, Docker-composable demo. Not hardened for multi-camera, 24/7, or unattended enforcement deployment — no retry/failover, no load testing performed, no rate limiting. |
