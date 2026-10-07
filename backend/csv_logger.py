@@ -44,7 +44,8 @@ class CSVLogger:
             "pedestrians_detected",
             "males",
             "females",
-            "children"
+            "children",
+            "unknown_pedestrians"
         ]
 
         self._init_csv()
@@ -120,7 +121,8 @@ class CSVLogger:
             "pedestrians_detected": ped_count,
             "males": pedestrians.get("males", 0) if isinstance(pedestrians, dict) else 0,
             "females": pedestrians.get("females", 0) if isinstance(pedestrians, dict) else 0,
-            "children": pedestrians.get("children", 0) if isinstance(pedestrians, dict) else 0
+            "children": pedestrians.get("children", 0) if isinstance(pedestrians, dict) else 0,
+            "unknown_pedestrians": pedestrians.get("unknown", 0) if isinstance(pedestrians, dict) else 0
         }
 
         with self.lock:

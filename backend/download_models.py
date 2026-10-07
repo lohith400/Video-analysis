@@ -6,6 +6,8 @@ Custom-trained models (plate, helmet, gender) are fetched from the
 v1.0-models GitHub Release if not already present locally.
 """
 
+import shutil
+import sys
 from pathlib import Path
 from urllib.request import urlretrieve
 
@@ -25,35 +27,59 @@ CUSTOM_MODEL_URLS = {
 
 def main() -> None:
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    Path("models/v2.0").mkdir(parents=True, exist_ok=True)
+    Path("models/v2.1").mkdir(parents=True, exist_ok=True)
 
-    # --- Vehicle model (generic COCO, auto-downloads via ultralytics) ---
+    # --- Pedestrian & vehicle base detector (yolov8n.pt via ultralytics) ---
+    pedestrian_dest = Path(config.PEDESTRIAN_MODEL)
+    print(f"Ensuring pedestrian detector at {pedestrian_dest} ...")
+    try:
+        model = YOLO("yolov8n.pt")
+        if not pedestrian_dest.exists():
+            src = Path(getattr(model, "ckpt_path", None) or "yolov8n.pt")
+            if src.exists():
+                shutil.copy2(src, pedestrian_dest)
+            else:
+                model.save(str(pedestrian_dest))
+        print(f"  Pedestrian detector ready at {pedestrian_dest}")
+    except Exception as exc:
+        print(f"ERROR: Failed to load/download pedestrian detector model ({exc})", file=sys.stderr)
+        sys.exit(1)
+
+    # --- Vehicle model ---
     vehicle_dest = Path(config.VEHICLE_MODEL)
-    print(f"Downloading {config.VEHICLE_MODEL} ...")
-    model = YOLO("yolov8n.pt")
     if not vehicle_dest.exists():
-        import shutil
-
-        src = Path(getattr(model, "ckpt_path", None) or "yolov8n.pt")
+        print(f"Copying vehicle model to {vehicle_dest} ...")
+        src = Path("yolov8n.pt")
         if src.exists():
             shutil.copy2(src, vehicle_dest)
-        else:
-            model.save(str(vehicle_dest))
 
-    # --- Custom-trained models (from GitHub Release) ---
+    # --- Custom-trained models (from GitHub Release or local fallback) ---
     for local_path, url in CUSTOM_MODEL_URLS.items():
         dest = Path(local_path)
         dest.parent.mkdir(parents=True, exist_ok=True)
         if dest.exists():
             print(f"Already present: {dest}")
             continue
-        print(f"Downloading {dest.name} from GitHub Release ...")
+
+        # Check local legacy location for gender model
+        if "gender_detector.pt" in str(dest):
+            legacy = Path("models/gender_detector.pt")
+            if legacy.exists():
+                shutil.copy2(legacy, dest)
+                print(f"  Copied from local legacy path to {dest}")
+                continue
+
+        print(f"Downloading {dest.name} from release URL ...")
         try:
             urlretrieve(url, str(dest))
             print(f"  Saved: {dest} ({dest.stat().st_size / 1024 / 1024:.1f} MB)")
         except Exception as e:
-            print(f"  WARNING: Failed to download {dest.name}: {e}")
+            print(f"  ERROR: Failed to download {dest}: {e}", file=sys.stderr)
+            if dest == Path(config.GENDER_MODEL) or dest == Path(config.PEDESTRIAN_MODEL):
+                sys.exit(1)
 
-    print("Done.")
+    print("All models ready.")
 
 
 if __name__ == "__main__":

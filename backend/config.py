@@ -4,7 +4,8 @@
 VEHICLE_MODEL = "models/v2.0/vehicle_detector.pt"
 PLATE_MODEL = "models/v2.0/license_plate_detector.pt"
 HELMET_MODEL = "models/v2.0/helmet_detector.pt"
-GENDER_MODEL = "models/gender_detector.pt"
+GENDER_MODEL = "models/v2.1/gender_detector.pt"
+PEDESTRIAN_MODEL = "models/yolov8n.pt"
 TRACKER_CONFIG = "models/custom_bytetrack.yaml"
 
 # Output Logging Settings
@@ -160,8 +161,32 @@ HELMET_CLASS_MAP = {
     "Bike_Rider": "helmet",
 }
 
-# --- PEDESTRIAN GENDER & DEMOGRAPHIC CONFIGS ---
-GENDER_CONF_THRESHOLD = 0.35
-PEDESTRIAN_VEHICLE_IOU = 0.30
-CHILD_HEIGHT_RATIO = 0.60
-GENDER_CHECK_EVERY_N = 4    
+# --- PEDESTRIAN DETECTION, TRACKING & DEMOGRAPHIC CONFIGS ---
+# Detection & Tracking Gates
+PEDESTRIAN_CONF_THRESHOLD = 0.35  # Detection confidence floor for person tracking
+MIN_PEDESTRIAN_TRACK_AGE = 8      # Minimum consecutive frames before track counts as stable pedestrian
+MIN_PEDESTRIAN_HEIGHT = 60        # Minimum pixel height to filter distant ground noise
+
+# Rider Exclusion Geometry
+PEDESTRIAN_RIDER_OVERLAP = 0.50   # If intersection(person, vehicle) / person_area >= 0.50 -> rider
+RIDER_BOX_UPWARD_EXPANSION = 0.40 # 40% vertical extension above two-wheelers/autos to cover rider torso/head
+PEDESTRIAN_VEHICLE_IOU = 0.30     # Legacy fallback IoU
+
+# Quality Filtering for Demographic Classification
+MIN_CROP_HEIGHT = 80              # Minimum crop height in pixels for demographic classification
+MIN_CROP_WIDTH = 30               # Minimum crop width in pixels
+MIN_CROP_SHARPNESS = 20.0         # Laplacian variance threshold to reject blurry/motion-smeared crops
+GENDER_CHECK_EVERY_N = 3          # Run demographic inference every 3 frames per active track
+
+# Classification & Temporal Voting
+GENDER_CONF_THRESHOLD = 0.50      # Confidence floor for demographic prediction; below this -> unknown
+VOTE_WINDOW = 15                  # Number of recent classifications stored in track history
+MIN_ACCEPTED_VOTES = 3            # Minimum valid predictions required before publishing demographic label
+VOTE_WEIGHT_THRESHOLD = 0.60      # Winning class must hold >= 60% of confidence-weighted votes to prevent flip-flopping
+
+# Child Heuristic Control
+USE_HEIGHT_CHILD_HEURISTIC = False # Model prediction takes priority; height heuristic disabled by default
+CHILD_HEIGHT_RATIO = 0.60          # Scene-relative child height ratio (only used if explicitly enabled)
+
+# Reporting & Snapshot Smoothing
+PEDESTRIAN_SMOOTHING_WINDOW_SEC = 2.0  # Rolling median window duration for instantaneous snapshot smoothing    
