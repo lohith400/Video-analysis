@@ -32,6 +32,8 @@ from tracker import VehicleTracker, TrackedVehicle
 from traffic_counter import TrafficCounter
 from helmet_checker import HelmetChecker
 from pedestrian_detector import PedestrianDetector, RawBox
+from snapshot_manager import SnapshotManager
+from vehicle_analyzer import analyze_vehicle, make_results_dir, write_vehicle_csv
 
 
 def _current_timestamp() -> str:
@@ -156,6 +158,22 @@ def main() -> int:
     helmet_checker = HelmetChecker(device=device)
     pedestrian_detector = PedestrianDetector(device=device)
 
+    # One best snapshot per vehicle -> plate + helmet analysed once on that image
+    snaps = SnapshotManager()
+    results_dir = make_results_dir()
+    analysis: dict = {}
+
+    def finalize(items) -> None:
+        for tid, rec in items:
+            if tid not in counter.counted_ids:
+                continue  # only vehicles that crossed the counting line are reported
+            cls = counter.track_assigned_class.get(tid, "Others")
+            if cls in ("Others", "Unknown"):
+                raw = _all_vehicle_classes.get(tid, rec["raw_class"])
+                cls = config.USER_CLASS_MAPPING.get(raw, "Others")
+            analysis[tid] = analyze_vehicle(tid, cls, rec, ocr if use_ocr else None, helmet_checker, results_dir)
+            print(f"[Snapshot] #{tid} {cls} plate={analysis[tid]['plate']} verdict={analysis[tid]['verdict']}")
+
     csv_logger = CSVLogger(
         counts_getter=_get_counts_snapshot,
         plates_getter=ocr.get_all_plates if use_ocr and ocr else (lambda: {}),
@@ -210,30 +228,9 @@ def main() -> int:
                     ]
                     ocr.detect_plates_sync(frame, plate_vehicles)
 
-            # ── Helmet checker (async thread pool)
-            if helmet_checker is not None:
-                for v in vehicles:
-                    v_cls = counter.get_voted_class(v.track_id)
-                    raw_cls = v.vehicle_class
-                    if config.is_two_wheeler(raw_cls) or config.is_two_wheeler(v_cls):
-                        with helmet_checker._lock:
-                            if v.track_id not in helmet_checker.all_two_wheeler_statuses:
-                                plate_now = ocr.get_plate(v.track_id) if use_ocr and ocr else None
-                                helmet_checker.all_two_wheeler_statuses[v.track_id] = {
-                                    "track_id": v.track_id,
-                                    "plate": plate_now or "not detected",
-                                    "vehicle_class": v_cls if v_cls != "Others" else "Bike/Motorcycle",
-                                    "rider_helmet": "unknown",
-                                    "pillion_helmet": "none",
-                                    "timestamp": _current_timestamp(),
-                                    "has_violation": False,
-                                    "violations": [],
-                                }
-                        if helmet_checker.should_check(v.track_id, frame_idx):
-                            plate = (ocr.get_plate(v.track_id) if use_ocr and ocr else None) or "UNKNOWN"
-                            crop = crop_vehicle(frame, v.bbox)
-                            helmet_checker.submit(v.track_id, crop, raw_cls, plate, _current_timestamp(), v.bbox)
-                helmet_checker.drain_completed()
+            # ── Best-snapshot capture (helmet + final plate read happen on this image)
+            snaps.update(frame, vehicles, frame_idx)
+            finalize(snaps.pop_lost(frame_idx))
 
             # ── Pedestrian & demographic detector (IRIS v2.1)
             if pedestrian_detector is not None:
@@ -315,6 +312,12 @@ def main() -> int:
         helmet_checker.shutdown()
         pedestrian_detector.shutdown()
 
+    # Analyse vehicles still in view when the video ended
+    finalize(snaps.pop_all())
+    csv_path = write_vehicle_csv(list(analysis.values()), results_dir)
+    print(f"[Snapshot] {len(analysis)} vehicle snapshots saved to {results_dir}")
+    print(f"[Snapshot] Per-vehicle CSV: {csv_path}")
+
     # Final summary output
     final_counts = counter.get_counts()
     print("\n" + "═" * 60)
@@ -333,26 +336,17 @@ def main() -> int:
     # ── Final per-vehicle report builder
     per_vehicle_rows = []
     for track_id in sorted(counter.counted_ids):
-        vehicle_class = counter.track_assigned_class.get(track_id, "Unknown")
-        plate = ocr.get_plate(track_id) if use_ocr and ocr else None
-        
+        row = analysis.get(track_id)
+        vehicle_class = (row or {}).get("vehicle_class") or counter.track_assigned_class.get(track_id, "Unknown")
+        plate = (row or {}).get("plate") if row else (ocr.get_plate(track_id) if use_ocr and ocr else None)
         helmet_status = "N/A"
         if config.is_two_wheeler(vehicle_class):
-            with helmet_checker._lock:
-                status_dict = helmet_checker.all_two_wheeler_statuses.get(track_id, {})
-                raw_h = str(status_dict.get("rider_helmet", "")).lower()
-                has_viol = status_dict.get("has_violation", False) or (track_id in helmet_checker.violation_history)
-
-            if "no_helmet" in raw_h or has_viol:
-                helmet_status = "VIOLATION (No Helmet)"
-            else:
-                helmet_status = "Compliant"
-
+            v = (row or {}).get("verdict", "")
+            helmet_status = "VIOLATION (No Helmet)" if v.startswith("VIOLATION") else (
+                "Compliant" if v == "COMPLIANT" else "Unverified")
         per_vehicle_rows.append({
-            "track_id": track_id,
-            "vehicle_class": vehicle_class,
-            "plate": plate or "not detected",
-            "helmet_status": helmet_status,
+            "track_id": track_id, "vehicle_class": vehicle_class,
+            "plate": plate or "not detected", "helmet_status": helmet_status,
         })
 
     # ── 1. Recognized Plates table
@@ -382,89 +376,33 @@ def main() -> int:
             print(f" {tid_str:<10} ║ {v_class:<24} ║ {plate_str:<16} ║ {conf_str}")
         print("═" * 74 + "\n")
 
-    # ── 2. Dedicated Two-Wheeler Helmet Compliance Table
-    two_wheelers = helmet_checker.get_all_two_wheelers()
-    for tid, raw_cls in _all_vehicle_classes.items():
-        v_cls = counter.get_voted_class(tid)
-        if config.is_two_wheeler(raw_cls) or config.is_two_wheeler(v_cls):
-            if tid not in two_wheelers:
-                plate_val = ocr.get_plate(tid) if use_ocr and ocr else None
-                two_wheelers[tid] = {
-                    "track_id": tid,
-                    "plate": plate_val or "not detected",
-                    "vehicle_class": v_cls if v_cls != "Others" else "Bike/Motorcycle",
-                    "rider_helmet": "unknown",
-                    "pillion_helmet": "none",
-                    "has_violation": False,
-                    "violations": [],
-                }
-
+    # ── 2. Two-wheeler helmet table: ONLY counted two-wheelers, one row per vehicle
     two_wheeler_rows = []
-    if two_wheelers:
+    tw_rows = [r for r in analysis.values() if config.is_two_wheeler(r["vehicle_class"])]
+    if tw_rows:
+        print("─" * 110)
+        print(" 🏍️   TWO-WHEELER RIDERS & PILLIONS — HELMET COMPLIANCE REPORT (1 snapshot per vehicle)")
+        print("─" * 110)
+        print(f" {'TRACK ID':<10} ║ {'VEHICLE TYPE':<18} ║ {'NUMBER PLATE':<16} ║ {'RIDER':<16} ║ {'PILLION':<16} ║ {'VERDICT'}")
         print("─" * 94)
-        print(" 🏍️   TWO-WHEELER RIDERS & PILLIONS — HELMET COMPLIANCE REPORT")
-        print("─" * 94)
-        print(f" {'TRACK ID':<10} ║ {'VEHICLE TYPE':<18} ║ {'NUMBER PLATE':<16} ║ {'RIDER':<12} ║ {'PILLION':<10} ║ {'VERDICT'}")
-        print("─" * 94)
-        tw_violations = 0
-        tw_compliant = 0
-
-        for tid in sorted(two_wheelers.keys()):
-            info = two_wheelers[tid]
-            v_cls = counter.get_voted_class(tid)
-            if v_cls in ("Others", "Unknown"):
-                v_cls = info.get("vehicle_class", "Bike/Motorcycle")
-            plate_val = (ocr.get_plate(tid) if use_ocr and ocr else None) or info.get("plate", "not detected")
-            r_h = str(info.get("rider_helmet", "unknown")).lower()
-            p_h = str(info.get("pillion_helmet", "none")).lower()
-            has_viol = info.get("has_violation", False) or (tid in helmet_checker.violation_history)
-
-            if "no_helmet" in r_h:
-                rider_disp = "NO HELMET"
-            elif "helmet" in r_h:
-                rider_disp = "HELMET"
-            else:
-                rider_disp = "NO HELMET" if has_viol else "HELMET"
-
-            if "no_helmet" in p_h:
-                pillion_disp = "NO HELMET"
-            elif "helmet" in p_h:
-                pillion_disp = "HELMET"
-            else:
-                pillion_disp = "None"
-
-            if has_viol or "no_helmet" in r_h or "no_helmet" in p_h:
+        tw_violations = tw_compliant = tw_unverified = 0
+        for r in sorted(tw_rows, key=lambda x: x["track_id"]):
+            v = r["verdict"]
+            if v.startswith("VIOLATION"):
                 tw_violations += 1
-                if "no_helmet" in r_h and "no_helmet" in p_h:
-                    verdict_disp = "❌ VIOLATION (Rider + Pillion No Helmet)"
-                elif "no_helmet" in r_h:
-                    verdict_disp = "❌ VIOLATION (Rider No Helmet)"
-                elif "no_helmet" in p_h:
-                    verdict_disp = "❌ VIOLATION (Pillion No Helmet)"
-                else:
-                    verdict_disp = "❌ VIOLATION"
-            else:
+            elif v == "COMPLIANT":
                 tw_compliant += 1
-                if "helmet" in r_h and "helmet" in p_h:
-                    verdict_disp = "✅ COMPLIANT (Both Helmet)"
-                elif "helmet" in r_h:
-                    verdict_disp = "✅ COMPLIANT (Rider Helmet)"
-                else:
-                    verdict_disp = "✅ COMPLIANT"
-
+            else:
+                tw_unverified += 1
             two_wheeler_rows.append({
-                "track_id": tid,
-                "vehicle_class": v_cls,
-                "plate": plate_val,
-                "rider_helmet": rider_disp,
-                "pillion_helmet": pillion_disp,
-                "verdict": verdict_disp,
+                "track_id": r["track_id"], "vehicle_class": r["vehicle_class"], "plate": r["plate"],
+                "rider_helmet": r["rider_helmet"], "pillion_helmet": r["pillion_helmet"], "verdict": v,
             })
-            tid_str = f"#{tid}"
-            print(f" {tid_str:<10} ║ {v_cls:<18} ║ {plate_val:<16} ║ {rider_disp:<12} ║ {pillion_disp:<10} ║ {verdict_disp}")
-
+            print(f" {'#' + str(r['track_id']):<10} ║ {r['vehicle_class']:<18} ║ {r['plate']:<16} ║ "
+                  f"{r['rider_helmet']:<16} ║ {r['pillion_helmet']:<16} ║ {v}")
         print("─" * 94)
-        print(f" 🚨 Total Two-Wheelers: {len(two_wheelers)} | Helmet Violations: {tw_violations} | Compliant: {tw_compliant}")
+        print(f" 🚨 Total Two-Wheelers: {len(tw_rows)} | Violations: {tw_violations} | "
+              f"Compliant: {tw_compliant} | Unverified: {tw_unverified}")
         print("═" * 94 + "\n")
 
     # ── 3. Crossing line vehicles
@@ -510,6 +448,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
-
-    

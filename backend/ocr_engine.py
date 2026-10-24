@@ -426,6 +426,56 @@ class OCREngine:
                 self.provisional.add(track_id)
         return best_plate, round(best_conf, 2)
 
+
+    def read_snapshot_plate(self, track_id: int, img: np.ndarray, two_wheeler: bool = False,
+                            extra_imgs: Optional[List[np.ndarray]] = None) -> Dict[str, Any]:
+        """Robust plate read on the best snapshot (+ optional alternate snapshots as backup).
+        Returns {plate, status(valid|partial|none), conf, box, support}. Updates the track vote."""
+        import plate_reader as pr
+        out: Dict[str, Any] = {"plate": None, "status": "none", "conf": 0.0, "box": None, "support": 0}
+        aspect = (0.5, 8.5) if two_wheeler else (config.PLATE_MIN_ASPECT, config.PLATE_MAX_ASPECT)
+        partial: Optional[Dict[str, Any]] = None
+
+        for k, im in enumerate([img] + list(extra_imgs or [])):
+            if im is None or im.size == 0:
+                continue
+            boxes = pr.detect_plate_boxes(self.detector.model, im, self.device, config.PLATE_USE_HALF,
+                                          two_wheeler, aspect)
+            for box, dconf in boxes[:3]:
+                x1, y1, x2, y2 = box
+                px, py = max(6, int((x2 - x1) * 0.12)), max(6, int((y2 - y1) * 0.20))
+                crop = im[max(0, y1 - py):min(im.shape[0], y2 + py), max(0, x1 - px):min(im.shape[1], x2 + px)]
+                r = pr.choose_best(pr.read_plate_crop(self.reader, crop))
+                if r["status"] == "valid" and (out["status"] != "valid" or r["conf"] > out["conf"]):
+                    out.update(r, box=box if k == 0 else None)
+                elif r["status"] == "partial" and (partial is None or r["conf"] > partial["conf"]):
+                    partial = dict(r, box=box if k == 0 else None)
+            if out["status"] == "valid" and out["support"] >= 2:
+                break
+            if out["status"] != "valid":
+                fb = pr.scan_for_plate(self.reader, im)
+                if fb:
+                    out.update(status="valid", plate=fb[0], conf=fb[1], support=1, box=fb[2] if k == 0 else None)
+                    break
+
+        if out["status"] != "valid" and partial:
+            out.update(partial)
+
+        if out["status"] == "valid":
+            with self._lock:
+                existing = self.results.get(track_id)
+                # a multi-variant snapshot read beats a live single read; otherwise keep the live plate
+                if existing is None or out["support"] >= 2 or out["conf"] > self.plate_confidences.get(track_id, 0.0):
+                    self.results[track_id] = out["plate"]
+                    self.plate_confidences[track_id] = out["conf"]
+                    self.provisional.discard(track_id)
+                else:
+                    out["plate"] = existing
+        if out["box"]:
+            with self._lock:
+                self.plate_boxes[track_id] = tuple(out["box"])
+        return out
+
     def needs_ocr(self, track_id: int) -> bool:
         with self._lock:
             existing = self.results.get(track_id)
