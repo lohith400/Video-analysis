@@ -295,3 +295,77 @@ class HelmetChecker:
 
     def shutdown(self) -> None:
         self.executor.shutdown(wait=False)
+
+# ---------------------------------------------------------------------------
+# Snapshot-based helmet analysis (one high-quality image per vehicle)
+# ---------------------------------------------------------------------------
+def _iou(a, b) -> float:
+    ix1, iy1, ix2, iy2 = max(a[0], b[0]), max(a[1], b[1]), min(a[2], b[2]), min(a[3], b[3])
+    inter = max(0, ix2 - ix1) * max(0, iy2 - iy1)
+    ua = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - inter
+    return inter / ua if ua > 0 else 0.0
+
+
+def analyze_snapshot(self: "HelmetChecker", img: np.ndarray, vehicle_box=None, conf: float = 0.20) -> Dict[str, Any]:
+    """Run the helmet model on ONE snapshot and return head clusters with a helmet/no-helmet score.
+
+    - helmet and no_helmet boxes on the same head are merged into one cluster;
+      p_no = best no_helmet conf / (best helmet conf + best no_helmet conf)
+    - heads must lie horizontally inside the vehicle box (+20%) and in its upper part
+    - at most 2 people; rider = largest head (closest to camera)
+    """
+    empty = {"n_heads": 0, "heads": []}
+    if self.model is None or img is None or img.size == 0:
+        return empty
+    h, w = img.shape[:2]
+    scale = 1.0
+    if max(h, w) < 960:
+        scale = 960.0 / max(h, w)
+        img = cv2.resize(img, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+    H, W = img.shape[:2]
+    res = self.model.predict(img, conf=conf, imgsz=min(1280, ((max(H, W) + 31) // 32) * 32),
+                             iou=0.5, device=self.device, verbose=False)
+    dets = []
+    if res and res[0].boxes is not None:
+        b = res[0].boxes
+        for xyxy, c, k in zip(b.xyxy.cpu().numpy(), b.conf.cpu().numpy(), b.cls.cpu().numpy().astype(int)):
+            name = self.model.names[int(k)].lower()
+            mapped = config.HELMET_CLASS_MAP.get(name, name)
+            bad = ("no_helmet" in mapped or "without_helmet" in mapped or "head" in mapped)
+            dets.append({"box": tuple(float(v) for v in xyxy), "conf": float(c), "no": bad})
+    dets.sort(key=lambda d: d["conf"], reverse=True)
+    clusters: List[Dict[str, Any]] = []
+    for d in dets:
+        for cl in clusters:
+            if _iou(d["box"], cl["box"]) >= 0.35:
+                cl["members"].append(d)
+                break
+        else:
+            clusters.append({"box": d["box"], "members": [d]})
+    # vehicle box in snapshot coordinates (scaled)
+    vb = tuple(v * scale for v in vehicle_box) if vehicle_box else None
+    heads: List[Dict[str, Any]] = []
+    for cl in clusters:
+        hc = max([m["conf"] for m in cl["members"] if not m["no"]], default=0.0)
+        nc = max([m["conf"] for m in cl["members"] if m["no"]], default=0.0)
+        x1, y1, x2, y2 = cl["box"]
+        cx, cy = (x1 + x2) / 2.0, (y1 + y2) / 2.0
+        area = (x2 - x1) * (y2 - y1)
+        if area > 0.30 * W * H:
+            continue
+        if vb is not None:
+            bw, bh = vb[2] - vb[0], vb[3] - vb[1]
+            if not (vb[0] - 0.2 * bw <= cx <= vb[2] + 0.2 * bw) or cy > vb[1] + 0.55 * bh:
+                continue
+        p_no = nc / (hc + nc) if (hc + nc) > 0 else 0.5
+        heads.append({"box": tuple(v / scale for v in cl["box"]), "area": area / (scale * scale),
+                      "conf": max(hc, nc), "p_no": p_no,
+                      "status": "no_helmet" if p_no >= 0.5 else "helmet",
+                      "helmet_conf": hc, "no_helmet_conf": nc})
+    heads.sort(key=lambda d: d["conf"], reverse=True)
+    heads = heads[:2]
+    heads.sort(key=lambda d: d["area"], reverse=True)
+    return {"n_heads": len(heads), "heads": heads}
+
+
+HelmetChecker.analyze_snapshot = analyze_snapshot
