@@ -28,10 +28,10 @@ import config
 from annotator import draw_annotations
 from csv_logger import CSVLogger
 from detector import VehicleModelLoader, crop_vehicle, get_device
-from tracker import VehicleTracker, TrackedVehicle
+from tracker import VehicleTracker
 from traffic_counter import TrafficCounter
 from helmet_checker import HelmetChecker
-from pedestrian_detector import PedestrianDetector, RawBox
+from pedestrian_detector import PedestrianDetector
 from snapshot_manager import SnapshotManager
 from vehicle_analyzer import analyze_vehicle, make_results_dir, write_vehicle_csv
 

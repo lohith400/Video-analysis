@@ -15,7 +15,7 @@ Strategy
 from __future__ import annotations
 
 import re
-from collections import Counter, defaultdict
+from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple
 
 import cv2

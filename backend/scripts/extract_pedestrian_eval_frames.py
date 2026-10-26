@@ -5,10 +5,8 @@ Extracts at least 150 crops across multiple videos and creates
 backend/pedestrian_eval/labels.csv template for manual verification and labeling.
 """
 
-import os
 import cv2
 import csv
-import glob
 from pathlib import Path
 from ultralytics import YOLO
 

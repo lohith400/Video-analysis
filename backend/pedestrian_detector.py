@@ -27,7 +27,6 @@ from ultralytics import YOLO
 
 import config
 from geometry_utils import (
-    calculate_iou,
     is_rider_of_vehicle,
     resolve_demographic_label,
     TrackVoteAccumulator,

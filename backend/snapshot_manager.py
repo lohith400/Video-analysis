@@ -1,7 +1,7 @@
 """Best-snapshot-per-vehicle: keeps ONE highest-quality crop per track_id."""
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 import cv2
 import numpy as np

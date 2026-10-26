@@ -5,7 +5,6 @@ Uses Bilateral Filtering + CLAHE + Lanczos3 Resampling and Multi-Frame Trajector
 
 from __future__ import annotations
 
-import collections
 import re
 import threading
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -21,10 +20,8 @@ import config
 from plate_utils import (
     STD_PLATE_REGEX,
     BH_PLATE_REGEX,
-    PositionalRegexCorrector,
     levenshtein_distance,
     sort_character_boxes_multiline,
-    clean_and_correct_indian_plate,
     extract_valid_plate,
 )
 

@@ -22,7 +22,6 @@ from geometry_utils import (
     calculate_intersection_ratio,
     is_center_inside_expanded_box,
     is_rider_of_vehicle,
-    is_child_by_height,
     resolve_demographic_label,
     TrackVoteAccumulator,
     RollingMedianSmoother,

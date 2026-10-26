@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import collections
 import re
-from typing import List, Optional, Sequence, Tuple, Dict, Any
+from typing import List, Optional, Sequence, Tuple
 import numpy as np
 
 # Valid Indian States and Union Territories
@@ -30,6 +30,11 @@ NUM_TO_ALPHA = {
 
 STD_PLATE_REGEX = re.compile(r"^[A-Z]{2}[0-9]{1,2}[A-Z]{1,3}[0-9]{4}$")
 BH_PLATE_REGEX = re.compile(r"^[0-9]{2}BH[0-9]{4}[A-HJ-NP-Z]{1,2}$")
+INDIAN_PLATE_REGEX = re.compile(r"^[A-Z]{2}[0-9]{2}[A-Z]{1,3}[0-9]{4}$")
+
+
+def is_valid_plate(text: str) -> bool:
+    return 8 <= len(text) <= 10
 
 
 class PositionalRegexCorrector:
@@ -179,7 +184,6 @@ def sort_character_boxes_multiline(char_boxes: list) -> list:
         # box structure: [bbox, text, conf] where bbox is [[x1,y1],[x2,y1],[x2,y2],[x1,y2]]
         pts = box[0]
         x_min = min(p[0] for p in pts)
-        x_max = max(p[0] for p in pts)
         y_min = min(p[1] for p in pts)
         y_max = max(p[1] for p in pts)
         

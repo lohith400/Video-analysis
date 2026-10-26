@@ -50,7 +50,7 @@ from auth import API_KEY, require_api_key
 from detector import VehicleModelLoader, crop_vehicle, get_device, crop_vehicle as crop_person
 from tracker import VehicleTracker
 from helmet_checker import HelmetChecker
-from pedestrian_detector import PedestrianDetector, RawBox
+from pedestrian_detector import PedestrianDetector
 
 # ── FastAPI ────────────────────────────────────────────────────────────────
 app = FastAPI(title="Indian Road Intelligence System")

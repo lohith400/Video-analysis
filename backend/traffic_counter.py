@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import collections
 import time
-from typing import Dict, List, Optional, Set, Tuple, Any
+from typing import Dict, List, Optional, Sequence, Set, Tuple
 import numpy as np
 
 import config
@@ -53,9 +53,30 @@ class TrafficCounter:
         self.line_coords = ((int(self.A[0]), int(self.A[1])), (int(self.B[0]), int(self.B[1])))
 
     @staticmethod
-    def _ccw(A: np.ndarray, B: np.ndarray, C: np.ndarray) -> float:
+    def _ccw(A: Sequence[float] | np.ndarray, B: Sequence[float] | np.ndarray, C: Sequence[float] | np.ndarray) -> float:
         """2D Cross-Product Vector Orientation."""
-        return (C[1] - A[1]) * (B[0] - A[0]) - (B[1] - A[1]) * (C[0] - A[0])
+        return float((C[1] - A[1]) * (B[0] - A[0]) - (B[1] - A[1]) * (C[0] - A[0]))
+
+    @classmethod
+    def check_intersection(
+        cls,
+        A: Sequence[float] | np.ndarray,
+        B: Sequence[float] | np.ndarray,
+        C: Sequence[float] | np.ndarray,
+        D: Sequence[float] | np.ndarray,
+    ) -> bool:
+        """Returns True if line segment AB intersects line segment CD."""
+        ptA = np.asarray(A, dtype=np.float32)
+        ptB = np.asarray(B, dtype=np.float32)
+        ptC = np.asarray(C, dtype=np.float32)
+        ptD = np.asarray(D, dtype=np.float32)
+        ccw_A_B_C = cls._ccw(ptA, ptB, ptC)
+        ccw_A_B_D = cls._ccw(ptA, ptB, ptD)
+        ccw_C_D_A = cls._ccw(ptC, ptD, ptA)
+        ccw_C_D_B = cls._ccw(ptC, ptD, ptB)
+        straddle_line = (np.sign(ccw_A_B_C) != np.sign(ccw_A_B_D)) and (ccw_A_B_C != 0)
+        straddle_trajectory = (np.sign(ccw_C_D_A) != np.sign(ccw_C_D_B))
+        return bool(straddle_line and straddle_trajectory)
 
     def get_voted_class(self, track_id: int) -> str:
         raw_classes = self.track_classes.get(track_id)
@@ -117,6 +138,14 @@ class TrafficCounter:
                     self.last_crossing_time = time.time()
                     
                     print(f"[TrafficCounter] Track {track_id} crossed ({direction})! Class={new_voted_class}. Total={self.counts['total']}")
+            elif track_id in self.counted_ids:
+                new_voted_class = self.get_voted_class(track_id)
+                old_voted_class = self.track_assigned_class.get(track_id)
+                if old_voted_class and old_voted_class != new_voted_class:
+                    self.counts[old_voted_class] = max(0, self.counts.get(old_voted_class, 0) - 1)
+                    self.counts[new_voted_class] = self.counts.get(new_voted_class, 0) + 1
+                    self.track_assigned_class[track_id] = new_voted_class
+                    print(f"[TrafficCounter] Track {track_id} class corrected: {old_voted_class} -> {new_voted_class}. Total={self.counts['total']}")
 
     def was_crossing_recent(self) -> bool:
         return (time.time() - self.last_crossing_time) < 0.4

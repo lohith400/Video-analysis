@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import collections
 import statistics
-from typing import Dict, List, Optional, Sequence, Tuple, TypedDict
+from typing import Dict, Tuple, TypedDict
 
 
 class HasBBox(TypedDict):

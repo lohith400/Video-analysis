@@ -86,10 +86,10 @@ class TestTrafficCounter(unittest.TestCase):
 
     def test_active_class_voting_correction(self):
         """Verify that when a track's voted class updates, counts are corrected in real-time."""
-        # 1. Update vehicle with 'car' raw prediction to trigger initial count
-        v1 = TrackedVehicle(track_id=2, bbox=(10, 10, 30, 30), confidence=0.8, vehicle_class="car")
+        # 1. Update vehicle with 'car' raw prediction to trigger initial count (crosses line at y=50)
+        v1 = TrackedVehicle(track_id=2, bbox=(10, 40, 30, 40), confidence=0.8, vehicle_class="car")
         self.counter.update([v1], (100, 100))
-        v2 = TrackedVehicle(track_id=2, bbox=(12, 10, 32, 30), confidence=0.8, vehicle_class="car")
+        v2 = TrackedVehicle(track_id=2, bbox=(12, 40, 32, 60), confidence=0.8, vehicle_class="car")
         self.counter.update([v2], (100, 100))
         
         counts = self.counter.get_counts()
@@ -99,7 +99,7 @@ class TestTrafficCounter(unittest.TestCase):
         # 2. Update with multiple 'bus' predictions to swing the majority vote
         # Now track_classes contains: ['car', 'car', 'bus', 'bus', 'bus'] (majority 'bus')
         for _ in range(3):
-            v_bus = TrackedVehicle(track_id=2, bbox=(15, 10, 35, 30), confidence=0.8, vehicle_class="bus")
+            v_bus = TrackedVehicle(track_id=2, bbox=(15, 40, 35, 65), confidence=0.8, vehicle_class="bus")
             self.counter.update([v_bus], (100, 100))
 
         counts = self.counter.get_counts()

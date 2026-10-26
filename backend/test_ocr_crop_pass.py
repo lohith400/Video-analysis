@@ -132,7 +132,6 @@ class TestCropPass(unittest.TestCase):
     def test_neighbour_plate_not_assigned(self):
         v = V(5, "motorcycle", (1000, 800, 1400, 1300))
         # plate far to the left of the vehicle -> centre outside the vehicle bbox
-        cx1 = int(1000 - 400 * 0.08)
         _state["crop"] = [(0, 100, 20, 120, 0.9)]
         _state["ocr"] = [("KA05NF9274", 0.9)]
         self.e.detect_plates_sync(self.frame, [v])

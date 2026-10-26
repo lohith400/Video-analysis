@@ -6,24 +6,20 @@ and track-level voting against manual annotations in backend/pedestrian_eval/lab
 Saves detailed evaluation report to Notes/pedestrian_eval_results.md.
 """
 
-import os
 import sys
 import csv
 import re
 from pathlib import Path
-from typing import Dict, List, Tuple
 from collections import defaultdict
 
 import cv2
-import numpy as np
 
 # Ensure backend directory is in path
 backend_dir = Path(__file__).resolve().parent
 if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
-import config
-from pedestrian_detector import PedestrianDetector, DemographicClassifier
+from pedestrian_detector import DemographicClassifier
 
 
 def run_evaluation():

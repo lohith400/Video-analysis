@@ -12,13 +12,10 @@ Produces exact counts:
 """
 
 import sys
-import os
 from pathlib import Path
-from typing import Dict, List, Tuple
-from collections import defaultdict
+from typing import Dict
 
 import cv2
-import numpy as np
 from ultralytics import YOLO
 
 # Ensure backend in sys.path
@@ -26,14 +23,14 @@ backend_dir = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(backend_dir))
 
 import config
-from geometry_utils import calculate_iou, is_child_by_height, is_rider_of_vehicle
-from pedestrian_detector import PedestrianDetector, DemographicClassifier, RawBox
+from geometry_utils import calculate_iou, is_child_by_height
+from pedestrian_detector import PedestrianDetector, RawBox
 
 
 def run_comparison(video_path: str, max_frames: int = 700):
-    print(f"\n=======================================================")
+    print("\n=======================================================")
     print(f"BENCHMARKING PIPELINE ON: {video_path}")
-    print(f"=======================================================")
+    print("=======================================================")
 
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
@@ -54,12 +51,10 @@ def run_comparison(video_path: str, max_frames: int = 700):
         old_gender_model = YOLO(str(old_model_path)).to(device)
 
     old_all_pedestrians_seen: Dict[int, str] = {}
-    old_rider_fps = 0
     old_results: Dict[int, str] = {}
 
     # NEW PIPELINE SETUP (v2.1)
     new_detector = PedestrianDetector(device=device)
-    new_rider_fps = 0
 
     frame_idx = 0
     while cap.isOpened() and frame_idx < max_frames:
@@ -108,8 +103,6 @@ def run_comparison(video_path: str, max_frames: int = 700):
                     break
             if is_ped:
                 old_filtered.append(p)
-            else:
-                old_rider_fps += 1
 
         # Old classification & height heuristic
         all_heights = [p.bbox[3] - p.bbox[1] for p in old_filtered]

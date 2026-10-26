@@ -5,7 +5,6 @@ from __future__ import annotations
 import sys
 import threading
 from concurrent.futures import Future, ThreadPoolExecutor
-from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple, Any
 
@@ -191,7 +190,7 @@ class HelmetChecker:
                 "violations": violations,
             }
 
-        except Exception as exc:
+        except Exception:
             return {
                 "track_id": track_id,
                 "rider_status": "unknown",
