@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple, Any
 
 import cv2
+from helmet_gate import gate as gate_heads
 import numpy as np
 
 # --- Fix legacy Ultralytics namespace mappings for older checkpoints ---
@@ -305,7 +306,27 @@ def _iou(a, b) -> float:
     return inter / ua if ua > 0 else 0.0
 
 
-def analyze_snapshot(self: "HelmetChecker", img: np.ndarray, vehicle_box=None, conf: float = 0.20) -> Dict[str, Any]:
+def _snapshot_persons(self: "HelmetChecker", img: np.ndarray):
+    """Person boxes (snapshot coords) from the COCO person model; [] if it is unavailable."""
+    if not hasattr(self, "_person_model"):
+        self._person_model = None
+        for cand in (config.PEDESTRIAN_MODEL, "backend/" + config.PEDESTRIAN_MODEL, "../" + config.PEDESTRIAN_MODEL):
+            if Path(cand).exists():
+                try:
+                    self._person_model = YOLO(str(cand))
+                    break
+                except Exception as exc:
+                    print(f"[HelmetChecker] person model unavailable: {exc}")
+    if self._person_model is None or img is None or img.size == 0:
+        return []
+    try:
+        r = self._person_model.predict(img, conf=0.25, classes=[0], imgsz=1280, device=self.device, verbose=False)
+        return [tuple(float(v) for v in b) for b in r[0].boxes.xyxy.cpu().numpy()] if r else []
+    except Exception:
+        return []
+
+
+def analyze_snapshot(self: "HelmetChecker", img: np.ndarray, vehicle_box=None, conf: float = 0.10) -> Dict[str, Any]:
     """Run the helmet model on ONE snapshot and return head clusters with a helmet/no-helmet score.
 
     - helmet and no_helmet boxes on the same head are merged into one cluster;
@@ -316,6 +337,7 @@ def analyze_snapshot(self: "HelmetChecker", img: np.ndarray, vehicle_box=None, c
     empty = {"n_heads": 0, "heads": []}
     if self.model is None or img is None or img.size == 0:
         return empty
+    persons = _snapshot_persons(self, img)
     h, w = img.shape[:2]
     scale = 1.0
     if max(h, w) < 960:
@@ -341,26 +363,25 @@ def analyze_snapshot(self: "HelmetChecker", img: np.ndarray, vehicle_box=None, c
                 break
         else:
             clusters.append({"box": d["box"], "members": [d]})
-    # vehicle box in snapshot coordinates (scaled)
+    # vehicle box + persons in snapshot coordinates (scaled)
     vb = tuple(v * scale for v in vehicle_box) if vehicle_box else None
+    pers = [tuple(v * scale for v in pb) for pb in persons]
+    for cl in clusters:
+        cl["hc"] = max([m["conf"] for m in cl["members"] if not m["no"]], default=0.0)
+        cl["nc"] = max([m["conf"] for m in cl["members"] if m["no"]], default=0.0)
+        cl["conf"] = max(cl["hc"], cl["nc"])
+    clusters = [cl for cl in clusters if cl["conf"] >= 0.12]
+    clusters = gate_heads(clusters, W, H, pers, vb)
     heads: List[Dict[str, Any]] = []
     for cl in clusters:
-        hc = max([m["conf"] for m in cl["members"] if not m["no"]], default=0.0)
-        nc = max([m["conf"] for m in cl["members"] if m["no"]], default=0.0)
+        hc, nc = cl["hc"], cl["nc"]
         x1, y1, x2, y2 = cl["box"]
-        cx, cy = (x1 + x2) / 2.0, (y1 + y2) / 2.0
         area = (x2 - x1) * (y2 - y1)
-        if area > 0.30 * W * H:
-            continue
-        if vb is not None:
-            bw, bh = vb[2] - vb[0], vb[3] - vb[1]
-            if not (vb[0] - 0.2 * bw <= cx <= vb[2] + 0.2 * bw) or cy > vb[1] + 0.55 * bh:
-                continue
         p_no = nc / (hc + nc) if (hc + nc) > 0 else 0.5
         heads.append({"box": tuple(v / scale for v in cl["box"]), "area": area / (scale * scale),
                       "conf": max(hc, nc), "p_no": p_no,
                       "status": "no_helmet" if p_no >= 0.5 else "helmet",
-                      "helmet_conf": hc, "no_helmet_conf": nc})
+                      "helmet_conf": hc, "no_helmet_conf": nc, "clipped_top": cl.get("clipped_top", False)})
     heads.sort(key=lambda d: d["conf"], reverse=True)
     heads = heads[:2]
     heads.sort(key=lambda d: d["area"], reverse=True)

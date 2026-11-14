@@ -34,6 +34,7 @@ def aggregate_helmet(per_snap: List[Dict[str, Any]]) -> Dict[str, Any]:
         wsum = sum(i["conf"] for i in items) or 1.0
         p_no = sum(i["p_no"] * i["conf"] for i in items) / wsum
         return {"p_no": p_no, "conf": max(i["conf"] for i in items), "n_obs": len(items),
+                "clipped": all(i.get("clipped_top") for i in items),
                 "status": "no_helmet" if p_no >= 0.5 else "helmet"}
 
     need = 1 if len(per_snap) == 1 else 2          # pillion must be seen in >=2 snapshots (or 1 if only one)
@@ -51,6 +52,8 @@ def _label(h) -> str:
 def _verdict(r, p) -> str:
     if r is None:
         return "UNVERIFIED (no head detected)"
+    if r.get("clipped") and r["status"] != "no_helmet":
+        return "REVIEW (head cut off in frame)"
     bad_r, bad_p = r["status"] == "no_helmet", bool(p and p["status"] == "no_helmet")
     if bad_r and bad_p:
         return "VIOLATION (Rider + Pillion No Helmet)"
@@ -64,6 +67,17 @@ def _verdict(r, p) -> str:
     return "COMPLIANT"
 
 
+def _save_plate_crops(out_dir: Path, tid: int, crops: List[Dict[str, Any]], plate: str, keep: int = 4) -> None:
+    """Save the clearest plate crops (native resolution) so every plate can be checked by eye."""
+    if not crops:
+        return
+    d = out_dir.parent / "plates"
+    d.mkdir(parents=True, exist_ok=True)
+    tag = plate if plate and plate != "not detected" else "noplate"
+    for i, c in enumerate(crops[:keep]):
+        cv2.imwrite(str(d / f"id{tid:04d}_{tag}_{i}.png"), c["crop"])
+
+
 def analyze_vehicle(tid: int, vehicle_class: str, rec: dict, ocr, helmet, out_dir: Path) -> Dict[str, Any]:
     img = rec["crop"]
     alts = rec.get("alts", [])
@@ -71,27 +85,27 @@ def analyze_vehicle(tid: int, vehicle_class: str, rec: dict, ocr, helmet, out_di
     row: Dict[str, Any] = {
         "track_id": tid, "vehicle_class": vehicle_class, "plate": "not detected", "plate_status": "none",
         "plate_conf": "", "rider_helmet": "N/A", "pillion_helmet": "N/A", "n_people": 0, "verdict": "N/A",
-        "snapshot": "", "snapshot_frame": rec["frame_idx"],
+        "snapshot": "", "snapshot_frame": rec["frame_idx"], "plate_alternatives": "", "plate_crops": 0,
     }
     vis = img.copy()
 
-    # ---- plate: best snapshot first, alternates as backup ----
+    # ---- plate: ALL evidence crops of this track + snapshots, read at several scales, fused per character
     plate_box = None
     if ocr is not None and vehicle_class in ("Car", "Truck", "Bus", "Auto Rickshaw", "Bike/Motorcycle", "Van"):
         try:
-            r = ocr.read_snapshot_plate(tid, img, two_wheeler=tw or vehicle_class == "Auto Rickshaw",
-                                        extra_imgs=[a["crop"] for a in alts])
+            r = ocr.read_track_plate(tid, [img] + [x["crop"] for x in alts],
+                                     two_wheeler=tw or vehicle_class == "Auto Rickshaw")
         except Exception as exc:
             print(f"[Analyzer] plate error track {tid}: {exc}")
-            r = {"status": "none", "plate": None, "conf": 0.0, "box": None}
+            r = {"status": "none", "plate": None, "conf": 0.0, "box": None, "crops": [], "alternatives": []}
         plate_box = r.get("box")
-        if r["status"] == "valid" and r["plate"]:
-            row.update(plate=r["plate"], plate_status="valid", plate_conf=f"{r['conf'] * 100:.1f}%")
+        if r["plate"]:
+            row.update(plate=r["plate"], plate_status=r["status"], plate_conf=f"{r['conf'] * 100:.1f}%",
+                       plate_alternatives="|".join(r["alternatives"]), plate_crops=len(r["crops"]))
         elif ocr.get_plate(tid):
-            row.update(plate=ocr.get_plate(tid), plate_status="live",
+            row.update(plate=ocr.get_plate(tid), plate_status="review",
                        plate_conf=f"{ocr.plate_confidences.get(tid, 0) * 100:.1f}%")
-        elif r["status"] == "partial" and r["plate"]:
-            row.update(plate=r["plate"] + "?", plate_status="partial", plate_conf=f"{r['conf'] * 100:.1f}%")
+        _save_plate_crops(out_dir, tid, r.get("crops", []), row["plate"])
     if plate_box:
         cv2.rectangle(vis, tuple(plate_box[:2]), tuple(plate_box[2:]), (255, 200, 0), 3)
         cv2.putText(vis, row["plate"], (plate_box[0], max(18, plate_box[1] - 8)),
@@ -128,7 +142,7 @@ def analyze_vehicle(tid: int, vehicle_class: str, rec: dict, ocr, helmet, out_di
 
 def write_vehicle_csv(rows: List[Dict[str, Any]], out_dir: Path) -> Path:
     path = out_dir.parent / "vehicle_report.csv"
-    cols = ["track_id", "vehicle_class", "plate", "plate_status", "plate_conf", "rider_helmet",
+    cols = ["track_id", "vehicle_class", "plate", "plate_status", "plate_conf", "plate_alternatives", "plate_crops", "rider_helmet",
             "pillion_helmet", "n_people", "verdict", "snapshot_frame", "snapshot"]
     with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore")

@@ -305,7 +305,10 @@ def main() -> int:
         print("\nInterrupted.")
     finally:
         cap.release()
-        cv2.destroyAllWindows()
+        try:
+            cv2.destroyAllWindows()
+        except cv2.error:
+            pass  # headless OpenCV builds have no GUI backend
         csv_logger.stop()
         if use_ocr and ocr:
             ocr.shutdown()

@@ -272,3 +272,35 @@ def scan_for_plate(reader, img: np.ndarray, lower_frac: float = 0.6):
             if best is None or conf * len(v) > best[1] * len(best[0]):
                 best = (v, conf, box)
     return best
+
+
+# --------------------------------------------------------------------------- multi-scale reads
+SCALES = (32, 48, 64, 96, 160)    # plate heights; each scale makes the recogniser err differently
+
+
+def read_plate_multiscale(reader, crop: np.ndarray) -> List[Tuple[str, float, str]]:
+    """Extra hypotheses for ONE plate crop at several heights (single-line AND two-line plates).
+
+    EasyOCR's recogniser has a systematic bias on some glyph pairs (M->H, Y->I) at any single
+    size; reading the same pixels at several scales spreads that bias so that the multi-frame
+    vote in plate_fusion can see the minority (correct) reading.
+    """
+    if crop is None or crop.size == 0:
+        return []
+    g = _to_gray(crop)
+    h, w = g.shape[:2]
+    two_line = (w / float(max(h, 1))) < 3.0
+    out: List[Tuple[str, float, str]] = []
+    for hh in SCALES:
+        if two_line:
+            top, bot, _ = split_two_lines(g)
+            t_txt, t_c = _read(reader, cv2.copyMakeBorder(_norm_height(top, hh), 6, 6, 6, 6, cv2.BORDER_REPLICATE))
+            b_txt, b_c = _read(reader, cv2.copyMakeBorder(_norm_height(bot, hh), 6, 6, 6, 6, cv2.BORDER_REPLICATE))
+            if t_txt or b_txt:
+                cs = [c for c, t in ((t_c, t_txt), (b_c, b_txt)) if t]
+                out.append((t_txt + b_txt, float(np.mean(cs)), f"ms2-{hh}"))
+        else:
+            txt, c = _read(reader, cv2.copyMakeBorder(_norm_height(g, hh), 6, 6, 6, 6, cv2.BORDER_REPLICATE))
+            if txt:
+                out.append((txt, c, f"ms1-{hh}"))
+    return out

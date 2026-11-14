@@ -11,7 +11,7 @@ import config
 # Expansion of the detector box so rider heads / pillions / plates are not cut off
 _EXPAND_TW = (0.15, 0.95, 0.15, 0.06)    # left, top, right, bottom (two-wheelers)
 _EXPAND_DEFAULT = (0.06, 0.06, 0.06, 0.06)
-MAX_ALTS = 3          # best candidates kept per vehicle (extra ones only used as backup/voting)
+MAX_ALTS = 5          # best candidates kept per vehicle (extra ones only used as backup/voting)
 MIN_GAP = 6           # frames between kept candidates
 EVAL_EVERY = 2        # score every N frames (4K crops are expensive)
 

@@ -72,6 +72,9 @@ def _plain_variant(crop: np.ndarray) -> np.ndarray:
     return cv2.addWeighted(gray, 1.5, blur, -0.5, 0)
 
 
+from plate_evidence import PlateEvidence, MAX_CROPS as _EVID_MAX
+
+
 class OCREngine:
     def __init__(self, device: str, max_workers: int = config.OCR_MAX_WORKERS):
         self.device = device
@@ -104,6 +107,8 @@ class OCREngine:
         # Tracks whose published plate rests on a single observation (keep reading to confirm)
         self.provisional: set = set()
         self._frame_counter = 0
+        # Whole-track plate evidence (read together at the end by plate_fusion)
+        self.evidence = PlateEvidence()
         
         print(f"[OCREngine] Initialized on {device} with {max_workers} thread pool workers.")
 
@@ -201,7 +206,7 @@ class OCREngine:
             v for v in vehicles
             if v.track_id not in matched_tracks
             and str(v.vehicle_class).lower() in crop_classes
-            and self.needs_ocr(v.track_id)
+            and (self.needs_ocr(v.track_id) or self.evidence.count(v.track_id) < _EVID_MAX)
             and (self._frame_counter + v.track_id) % every_n == 0
         ]
         # biggest (closest) vehicles first: their plates are the most legible
@@ -270,6 +275,9 @@ class OCREngine:
         px1, py1, px2, py2 = box
         with self._lock:
             self.plate_boxes[track_id] = (px1, py1, px2, py2)
+
+        # keep EVERY good native-resolution crop of this vehicle, even after a live read "locked"
+        self.evidence.add(track_id, self._frame_counter, frame, (px1, py1, px2, py2), det_conf)
 
         if not self.needs_ocr(track_id):
             return
@@ -430,7 +438,7 @@ class OCREngine:
         Returns {plate, status(valid|partial|none), conf, box, support}. Updates the track vote."""
         import plate_reader as pr
         out: Dict[str, Any] = {"plate": None, "status": "none", "conf": 0.0, "box": None, "support": 0}
-        aspect = (0.5, 8.5) if two_wheeler else (config.PLATE_MIN_ASPECT, config.PLATE_MAX_ASPECT)
+        aspect = (0.5, 8.5) if two_wheeler else (getattr(config, "PLATE_MIN_ASPECT", 0.8), getattr(config, "PLATE_MAX_ASPECT", 6.5))
         partial: Optional[Dict[str, Any]] = None
 
         for k, im in enumerate([img] + list(extra_imgs or [])):
@@ -473,6 +481,65 @@ class OCREngine:
                 self.plate_boxes[track_id] = tuple(out["box"])
         return out
 
+    def read_track_plate(self, track_id: int, snapshot_imgs: Optional[List[np.ndarray]] = None,
+                         two_wheeler: bool = False) -> Dict[str, Any]:
+        """FINAL plate for one vehicle: read every stored evidence crop (+ the snapshots) at several
+        scales and fuse character by character. Slow on purpose; accuracy over speed."""
+        import plate_reader as pr
+        from plate_fusion import Read, fuse
+
+        crops = self.evidence.pop(track_id)
+        reads: List[Read] = []
+        used: List[dict] = []
+        qmax = max([c["q"] for c in crops], default=1.0)
+
+        def add_reads(img: np.ndarray, weight: float) -> None:
+            for t, c, tag in pr.read_plate_crop(self.reader, img) + pr.read_plate_multiscale(self.reader, img):
+                reads.append(Read(t, c, weight, tag))
+
+        for c in crops[:10]:
+            add_reads(c["crop"], 0.3 + c["q"] / qmax)
+            used.append(c)
+
+        # snapshots: detect plates again at native resolution and use them as extra evidence
+        aspect = (0.5, 8.5) if two_wheeler else (getattr(config, "PLATE_MIN_ASPECT", 0.8), getattr(config, "PLATE_MAX_ASPECT", 6.5))
+        snap_boxes = None
+        for k, im in enumerate((snapshot_imgs or [])[:4]):
+            if im is None or im.size == 0:
+                continue
+            try:
+                boxes = pr.detect_plate_boxes(self.detector.model, im, self.device, config.PLATE_USE_HALF,
+                                              two_wheeler, aspect)
+            except Exception:
+                boxes = []
+            for box, dconf in boxes[:2]:
+                x1, y1, x2, y2 = box
+                px, py = max(4, int((x2 - x1) * 0.06)), max(4, int((y2 - y1) * 0.10))
+                crop = im[max(0, y1 - py):min(im.shape[0], y2 + py), max(0, x1 - px):min(im.shape[1], x2 + px)]
+                add_reads(crop, 1.0 if k == 0 else 0.7)
+                used.append({"crop": crop, "frame": -1, "box": box, "det": dconf, "q": 0.0})
+                if k == 0 and snap_boxes is None:
+                    snap_boxes = box
+            if not reads:
+                fb = pr.scan_for_plate(self.reader, im)
+                if fb:
+                    reads.append(Read(fb[0], fb[1], 0.8, "scan"))
+                    if k == 0 and snap_boxes is None:
+                        snap_boxes = fb[2]
+
+        fp = fuse(reads)
+        out: Dict[str, Any] = {
+            "plate": fp.plate, "status": fp.status, "conf": fp.conf, "n_crops": len(used), "n_reads": len(reads),
+            "n_used": fp.n_used, "alternatives": fp.alternatives, "weak": fp.weak_positions,
+            "ambiguous": fp.ambiguous_positions, "box": snap_boxes, "crops": used,
+        }
+        if fp.plate:
+            with self._lock:
+                self.results[track_id] = fp.plate
+                self.plate_confidences[track_id] = fp.conf
+                self.provisional.discard(track_id)
+        return out
+
     def needs_ocr(self, track_id: int) -> bool:
         with self._lock:
             existing = self.results.get(track_id)
@@ -495,6 +562,7 @@ class OCREngine:
             self.track_observations.clear()
             self.provisional.clear()
             self._frame_counter = 0
+            self.evidence.clear()
 
     def get_plate(self, track_id: int) -> Optional[str]:
         with self._lock:
